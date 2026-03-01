@@ -48,7 +48,8 @@ class ResourcePreprocessor {
 
     const TextureData &getTextureData(const std::string &key);
 
-    std::function<std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>>(const std::string &)>
+    std::function<std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>>(
+        const std::string &)>
     textureGetter();
 
     std::string getKey(const std::filesystem::path &path);

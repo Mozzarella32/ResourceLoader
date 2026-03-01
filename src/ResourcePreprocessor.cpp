@@ -1070,7 +1070,8 @@ void ResourcePreprocessor::preprocess() {
     }
     str << "}\n";
 
-    str << "std::unordered_map<std::string, std::variant<ShaderData_c *, TextureData_c *, "
+    str << "std::unordered_map<std::string, std::variant<ShaderData_c *, "
+           "TextureData_c *, "
            "MeshData *>> preprocessor_data = {\n";
     for (const auto &key : shader_keys) {
         str << "\t{\"" << key << "\", &" << key << "_data},\n";
@@ -1083,7 +1084,8 @@ void ResourcePreprocessor::preprocess() {
     }
     str << "};\n\n";
 
-    str << "auto init_data = [](){ PreprocessorDataHolder::setData(preprocessor_data); return "
+    str << "auto init_data = [](){ "
+           "PreprocessorDataHolder::setData(preprocessor_data); return "
            "1; }();\n";
 
     if (str.str() != readFile(resourceCpp)) {
