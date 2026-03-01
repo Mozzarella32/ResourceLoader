@@ -3,7 +3,7 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 project(ResourceLoader LANGUAGES CXX C)
 
-inclulde (FetchContent)
+include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -47,26 +47,25 @@ if(NOT glslang_FOUND)
     set(ENABLE_PCH OFF CACHE BOOL "")                
     set(GLSLANG_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/external")
 
-
     FetchContent_Declare(
       spirv_headers
       GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers.git
-      SOURCE_DIR ${GLSLANG_EXTERNAL_ROOT}/External/spirv-tools/external/spirv-headers
+      GIT_TAG main
     )
+
     FetchContent_Declare(
       spirv_tools
       GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools.git
-      SOURCE_DIR ${GLSLANG_EXTERNAL_ROOT}/External/spirv-tools
+      GIT_TAG main
     )
+
     FetchContent_Declare(
       glslang
       GIT_REPOSITORY https://github.com/KhronosGroup/glslang.git
-      GIT_TAG ${GLSLANG_COMMIT}
-      SOURCE_DIR ${GLSLANG_EXTERNAL_ROOT}
+      GIT_TAG main
     )
 
-    FetchContent_MakeAvailable(spirv_headers spirv_tools)
-    FetchContent_MakeAvailable(glslang)
+    FetchContent_MakeAvailable(spirv_headers spirv_tools glslang)
 endif()
 
 
