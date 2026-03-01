@@ -3,6 +3,8 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 project(ResourceLoader LANGUAGES CXX C)
 
+inclulde (FetchContent)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -63,10 +65,8 @@ if(NOT glslang_FOUND)
       SOURCE_DIR ${GLSLANG_EXTERNAL_ROOT}
     )
 
-    FetchContent_Populate(spirv_headers)
-    FetchContent_Populate(spirv_tools)
+    FetchContent_MakeAvailable(spirv_headers spirv_tools)
     FetchContent_MakeAvailable(glslang)
-
 endif()
 
 
