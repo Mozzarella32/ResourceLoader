@@ -1,0 +1,9 @@
+[submodule "submodules/stb"]
+	path = submodules/stb
+	url = https://github.com/nothings/stb
+[submodule "submodules/tinyobjloader"]
+	path = submodules/tinyobjloader
+	url = https://github.com/tinyobjloader/tinyobjloader
+[submodule "submodules/Visitor"]
+	path = submodules/Visitor
+	url = https://github.com/Mozzarella32/Visitor.git
