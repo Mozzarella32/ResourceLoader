@@ -88,10 +88,12 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/submodules/Visitor"
 )
 
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${TINY_OBJ_LOADER_INCLUDE_DIR}
-    ${GLSLANG_INCLUDE_DIR}
     ${STB_INCLUDE_DIR}
+)
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
+    ${GLSLANG_INCLUDE_DIR}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
