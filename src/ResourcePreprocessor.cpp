@@ -4,7 +4,7 @@
 
 #include <cstdint>
 #include <glslang/Public/ShaderLang.h>
-#include <glslang/SPIRV/GlslangToSpv.h>
+#include <SPIRV/GlslangToSpv.h>
 
 #include <cassert>
 #include <chrono>

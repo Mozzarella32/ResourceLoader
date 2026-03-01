@@ -10,6 +10,7 @@
 #include <thread>
 #include <unordered_map>
 #include <variant>
+#include <span>
 
 struct ShaderData {
     uint64_t timestamp;

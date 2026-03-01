@@ -11,7 +11,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(STB_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/submodules/stb")
-
 set(TINY_OBJ_LOADER_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/submodules/tinyobjloader")
 
 find_package(glslang QUIET)
@@ -23,7 +22,7 @@ if(NOT glslang_FOUND)
     set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip building examples for SPIRV-Headers")
     set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE BOOL "Skip install for SPIRV-Headers")
 
-    #Tools
+    # Tools
     set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip building the executable and tests along with the library")
     set(SPIRV_SKIP_TESTS ON CACHE BOOL "Skip building tests along with the library")
     set(SPIRV_BUILD_FUZZER OFF CACHE BOOL "Disable spirv-fuzz")
@@ -35,17 +34,16 @@ if(NOT glslang_FOUND)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
     set(SPIRV_TOOLS_LIBRARY_TYPE "STATIC" CACHE STRING "")
 
-    #glslang
-    set(BUILD_EXTERNAL ON CACHE BOOL "")             
-    set(BUILD_WERROR OFF CACHE BOOL "")              
-    set(GLSLANG_TESTS OFF CACHE BOOL "")             
-    set(GLSLANG_ENABLE_INSTALL OFF CACHE BOOL "")    
-    set(ENABLE_SPIRV ON CACHE BOOL "")               
-    set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "")   
-    set(ENABLE_HLSL OFF CACHE BOOL "")               
-    set(ENABLE_OPT ON CACHE BOOL "")                
-    set(ENABLE_PCH OFF CACHE BOOL "")                
-    set(GLSLANG_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/external")
+    # glslang
+    set(BUILD_EXTERNAL ON CACHE BOOL "")
+    set(BUILD_WERROR OFF CACHE BOOL "")
+    set(GLSLANG_TESTS OFF CACHE BOOL "")
+    set(GLSLANG_ENABLE_INSTALL OFF CACHE BOOL "")
+    set(ENABLE_SPIRV ON CACHE BOOL "")
+    set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "")
+    set(ENABLE_HLSL OFF CACHE BOOL "")
+    set(ENABLE_OPT ON CACHE BOOL "")
+    set(ENABLE_PCH OFF CACHE BOOL "")
 
     FetchContent_Declare(
       spirv_headers
@@ -67,7 +65,6 @@ if(NOT glslang_FOUND)
 
     FetchContent_MakeAvailable(spirv_headers spirv_tools glslang)
 endif()
-
 
 if (MSVC)
     add_compile_options(/W4 /WX)
@@ -91,9 +88,17 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${TINY_OBJ_LOADER_INCLUDE_DIR}
     ${STB_INCLUDE_DIR}
 )
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
-    ${GLSLANG_INCLUDE_DIR}
-)
+
+# if (DEFINED glslang_SOURCE_DIR)
+#     set(GLSLANG_INCLUDES ${glslang_SOURCE_DIR})
+# endif()
+# if (DEFINED glslang_BINARY_DIR)
+#     list(APPEND GLSLANG_INCLUDES ${glslang_BINARY_DIR})
+# endif()
+
+# if (GLSLANG_INCLUDES)
+#     target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${GLSLANG_INCLUDES})
+# endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     glslang::glslang
