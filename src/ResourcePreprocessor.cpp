@@ -23,7 +23,7 @@
 #define stat _stat
 #endif
 
-uint64_t get_mtime_ms(const std::string &filename) {
+auto get_mtime_ms(const std::string &filename) -> uint64_t {
     struct stat result;
     if (stat(filename.c_str(), &result) != 0) {
         return 0;
@@ -54,125 +54,123 @@ void ResourcePreprocessor::info() const {
     std::cout << "Output dir: " << (outputDir.empty() ? "<none>" : outputDir) << "\n";
 }
 
-const TBuiltInResource DefaultTBuiltInResource = {
-    /* .MaxLights = */ 32,
-    /* .MaxClipPlanes = */ 6,
-    /* .MaxTextureUnits = */ 32,
-    /* .MaxTextureCoords = */ 32,
-    /* .MaxVertexAttribs = */ 64,
-    /* .MaxVertexUniformComponents = */ 4096,
-    /* .MaxVaryingFloats = */ 64,
-    /* .MaxVertexTextureImageUnits = */ 32,
-    /* .MaxCombinedTextureImageUnits = */ 80,
-    /* .MaxTextureImageUnits = */ 32,
-    /* .MaxFragmentUniformComponents = */ 4096,
-    /* .MaxDrawBuffers = */ 32,
-    /* .MaxVertexUniformVectors = */ 128,
-    /* .MaxVaryingVectors = */ 8,
-    /* .MaxFragmentUniformVectors = */ 16,
-    /* .MaxVertexOutputVectors = */ 16,
-    /* .MaxFragmentInputVectors = */ 15,
-    /* .MinProgramTexelOffset = */ -8,
-    /* .MaxProgramTexelOffset = */ 7,
-    /* .MaxClipDistances = */ 8,
-    /* .MaxComputeWorkGroupCountX = */ 65535,
-    /* .MaxComputeWorkGroupCountY = */ 65535,
-    /* .MaxComputeWorkGroupCountZ = */ 65535,
-    /* .MaxComputeWorkGroupSizeX = */ 1024,
-    /* .MaxComputeWorkGroupSizeY = */ 1024,
-    /* .MaxComputeWorkGroupSizeZ = */ 64,
-    /* .MaxComputeUniformComponents = */ 1024,
-    /* .MaxComputeTextureImageUnits = */ 16,
-    /* .MaxComputeImageUniforms = */ 8,
-    /* .MaxComputeAtomicCounters = */ 8,
-    /* .MaxComputeAtomicCounterBuffers = */ 1,
-    /* .MaxVaryingComponents = */ 60,
-    /* .MaxVertexOutputComponents = */ 64,
-    /* .MaxGeometryInputComponents = */ 64,
-    /* .MaxGeometryOutputComponents = */ 128,
-    /* .MaxFragmentInputComponents = */ 128,
-    /* .MaxImageUnits = */ 8,
-    /* .MaxCombinedImageUnitsAndFragmentOutputs = */ 8,
-    /* .MaxCombinedShaderOutputResources = */ 8,
-    /* .MaxImageSamples = */ 0,
-    /* .MaxVertexImageUniforms = */ 0,
-    /* .MaxTessControlImageUniforms = */ 0,
-    /* .MaxTessEvaluationIageUniforms = */ 0,
-    /* .MaxGeometryImageUniforms = */ 0,
-    /* .MaxFragmentImageUniforms = */ 8,
-    /* .MaxCombinedImageUniforms = */ 8,
-    /* .MaxGeometryTextureImageUnits = */ 16,
-    /* .MaxGeometryOutputVertices = */ 256,
-    /* .MaxGeometryTotalOutputComponents = */ 1024,
-    /* .MaxGeometryUniformComponents = */ 1024,
-    /* .MaxGeometryVaryingComponents = */ 64,
-    /* .MaxTessControlInputComponents = */ 128,
-    /* .MaxTessControlOutputComponents = */ 128,
-    /* .MaxTessControlTextureImageUnits = */ 16,
-    /* .MaxTessControlUniformComponents = */ 1024,
-    /* .MaxTessControlTotalOutputComponents = */ 4096,
-    /* .MaxTessEvaluationInputComponents = */ 128,
-    /* .MaxTessEvaluationOutputComponents = */ 128,
-    /* .MaxTessEvaluationTextureImageUnits = */ 16,
-    /* .MaxTessEvaluationUniformComponents = */ 1024,
-    /* .MaxTessPatchComponents = */ 120,
-    /* .MaxPatchVertices = */ 32,
-    /* .MaxTessGenLevel = */ 64,
-    /* .MaxViewports = */ 16,
-    /* .MaxVertexAtomicCounters = */ 0,
-    /* .MaxTessControlAtomicCounters = */ 0,
-    /* .MaxTessEvaluationAtomicCounters = */ 0,
-    /* .MaxGeometryAtomicCounters = */ 0,
-    /* .MaxFragmentAtomicCounters = */ 8,
-    /* .MaxCombinedAtomicCounters = */ 8,
-    /* .MaxAtomicCounterBindings = */ 1,
-    /* .MaxVertexAtomicCounterBuffers = */ 0,
-    /* .MaxTessControlAtomicCounterBuffers = */ 0,
-    /* .MaxTessEvaluationAtomicCounterBuffers = */ 0,
-    /* .MaxGeometryAtomicCounterBuffers = */ 0,
-    /* .MaxFragmentAtomicCounterBuffers = */ 1,
-    /* .MaxCombinedAtomicCounterBuffers = */ 1,
-    /* .MaxAtomicCounterBufferSize = */ 16384,
-    /* .MaxTransformFeedbackBuffers = */ 4,
-    /* .MaxTransformFeedbackInterleavedComponents = */ 64,
-    /* .MaxCullDistances = */ 8,
-    /* .MaxCombinedClipAndCullDistances = */ 8,
-    /* .MaxSamples = */ 4,
-    /* .maxMeshOutputVerticesNV = */ 256,
-    /* .maxMeshOutputPrimitivesNV = */ 512,
-    /* .maxMeshWorkGroupSizeX_NV = */ 32,
-    /* .maxMeshWorkGroupSizeY_NV = */ 1,
-    /* .maxMeshWorkGroupSizeZ_NV = */ 1,
-    /* .maxTaskWorkGroupSizeX_NV = */ 32,
-    /* .maxTaskWorkGroupSizeY_NV = */ 1,
-    /* .maxTaskWorkGroupSizeZ_NV = */ 1,
-    /* .maxMeshViewCountNV = */ 4,
-    /* .maxMeshOutputVerticesEXT = */ 256,
-    /* .maxMeshOutputPrimitivesEXT = */ 256,
-    /* .maxMeshWorkGroupSizeX_EXT = */ 128,
-    /* .maxMeshWorkGroupSizeY_EXT = */ 128,
-    /* .maxMeshWorkGroupSizeZ_EXT = */ 128,
-    /* .maxTaskWorkGroupSizeX_EXT = */ 128,
-    /* .maxTaskWorkGroupSizeY_EXT = */ 128,
-    /* .maxTaskWorkGroupSizeZ_EXT = */ 128,
-    /* .maxMeshViewCountEXT = */ 4,
-    /* .maxDualSourceDrawBuffersEXT = */ 1,
+const TBuiltInResource DefaultTBuiltInResource = {.maxLights = 32,
+                                                  .maxClipPlanes = 6,
+                                                  .maxTextureUnits = 32,
+                                                  .maxTextureCoords = 32,
+                                                  .maxVertexAttribs = 64,
+                                                  .maxVertexUniformComponents = 4096,
+                                                  .maxVaryingFloats = 64,
+                                                  .maxVertexTextureImageUnits = 32,
+                                                  .maxCombinedTextureImageUnits = 80,
+                                                  .maxTextureImageUnits = 32,
+                                                  .maxFragmentUniformComponents = 4096,
+                                                  .maxDrawBuffers = 32,
+                                                  .maxVertexUniformVectors = 128,
+                                                  .maxVaryingVectors = 8,
+                                                  .maxFragmentUniformVectors = 16,
+                                                  .maxVertexOutputVectors = 16,
+                                                  .maxFragmentInputVectors = 15,
+                                                  .minProgramTexelOffset = -8,
+                                                  .maxProgramTexelOffset = 7,
+                                                  .maxClipDistances = 8,
+                                                  .maxComputeWorkGroupCountX = 65535,
+                                                  .maxComputeWorkGroupCountY = 65535,
+                                                  .maxComputeWorkGroupCountZ = 65535,
+                                                  .maxComputeWorkGroupSizeX = 1024,
+                                                  .maxComputeWorkGroupSizeY = 1024,
+                                                  .maxComputeWorkGroupSizeZ = 64,
+                                                  .maxComputeUniformComponents = 1024,
+                                                  .maxComputeTextureImageUnits = 16,
+                                                  .maxComputeImageUniforms = 8,
+                                                  .maxComputeAtomicCounters = 8,
+                                                  .maxComputeAtomicCounterBuffers = 1,
+                                                  .maxVaryingComponents = 60,
+                                                  .maxVertexOutputComponents = 64,
+                                                  .maxGeometryInputComponents = 64,
+                                                  .maxGeometryOutputComponents = 128,
+                                                  .maxFragmentInputComponents = 128,
+                                                  .maxImageUnits = 8,
+                                                  .maxCombinedImageUnitsAndFragmentOutputs = 8,
+                                                  .maxCombinedShaderOutputResources = 8,
+                                                  .maxImageSamples = 0,
+                                                  .maxVertexImageUniforms = 0,
+                                                  .maxTessControlImageUniforms = 0,
+                                                  .maxTessEvaluationImageUniforms = 0,
+                                                  .maxGeometryImageUniforms = 0,
+                                                  .maxFragmentImageUniforms = 8,
+                                                  .maxCombinedImageUniforms = 8,
+                                                  .maxGeometryTextureImageUnits = 16,
+                                                  .maxGeometryOutputVertices = 256,
+                                                  .maxGeometryTotalOutputComponents = 1024,
+                                                  .maxGeometryUniformComponents = 1024,
+                                                  .maxGeometryVaryingComponents = 64,
+                                                  .maxTessControlInputComponents = 128,
+                                                  .maxTessControlOutputComponents = 128,
+                                                  .maxTessControlTextureImageUnits = 16,
+                                                  .maxTessControlUniformComponents = 1024,
+                                                  .maxTessControlTotalOutputComponents = 4096,
+                                                  .maxTessEvaluationInputComponents = 128,
+                                                  .maxTessEvaluationOutputComponents = 128,
+                                                  .maxTessEvaluationTextureImageUnits = 16,
+                                                  .maxTessEvaluationUniformComponents = 1024,
+                                                  .maxTessPatchComponents = 120,
+                                                  .maxPatchVertices = 32,
+                                                  .maxTessGenLevel = 64,
+                                                  .maxViewports = 16,
+                                                  .maxVertexAtomicCounters = 0,
+                                                  .maxTessControlAtomicCounters = 0,
+                                                  .maxTessEvaluationAtomicCounters = 0,
+                                                  .maxGeometryAtomicCounters = 0,
+                                                  .maxFragmentAtomicCounters = 8,
+                                                  .maxCombinedAtomicCounters = 8,
+                                                  .maxAtomicCounterBindings = 1,
+                                                  .maxVertexAtomicCounterBuffers = 0,
+                                                  .maxTessControlAtomicCounterBuffers = 0,
+                                                  .maxTessEvaluationAtomicCounterBuffers = 0,
+                                                  .maxGeometryAtomicCounterBuffers = 0,
+                                                  .maxFragmentAtomicCounterBuffers = 1,
+                                                  .maxCombinedAtomicCounterBuffers = 1,
+                                                  .maxAtomicCounterBufferSize = 16384,
+                                                  .maxTransformFeedbackBuffers = 4,
+                                                  .maxTransformFeedbackInterleavedComponents = 64,
+                                                  .maxCullDistances = 8,
+                                                  .maxCombinedClipAndCullDistances = 8,
+                                                  .maxSamples = 4,
+                                                  .maxMeshOutputVerticesNV = 256,
+                                                  .maxMeshOutputPrimitivesNV = 512,
+                                                  .maxMeshWorkGroupSizeX_NV = 32,
+                                                  .maxMeshWorkGroupSizeY_NV = 1,
+                                                  .maxMeshWorkGroupSizeZ_NV = 1,
+                                                  .maxTaskWorkGroupSizeX_NV = 32,
+                                                  .maxTaskWorkGroupSizeY_NV = 1,
+                                                  .maxTaskWorkGroupSizeZ_NV = 1,
+                                                  .maxMeshViewCountNV = 4,
+                                                  .maxMeshOutputVerticesEXT = 256,
+                                                  .maxMeshOutputPrimitivesEXT = 256,
+                                                  .maxMeshWorkGroupSizeX_EXT = 128,
+                                                  .maxMeshWorkGroupSizeY_EXT = 128,
+                                                  .maxMeshWorkGroupSizeZ_EXT = 128,
+                                                  .maxTaskWorkGroupSizeX_EXT = 128,
+                                                  .maxTaskWorkGroupSizeY_EXT = 128,
+                                                  .maxTaskWorkGroupSizeZ_EXT = 128,
+                                                  .maxMeshViewCountEXT = 4,
+                                                  .maxDualSourceDrawBuffersEXT = 1,
 
-    /* .limits = */
-    {
-        /* .nonInductiveForLoops = */ 1,
-        /* .whileLoops = */ 1,
-        /* .doWhileLoops = */ 1,
-        /* .generalUniformIndexing = */ 1,
-        /* .generalAttributeMatrixVectorIndexing = */ 1,
-        /* .generalVaryingIndexing = */ 1,
-        /* .generalSamplerIndexing = */ 1,
-        /* .generalVariableIndexing = */ 1,
-        /* .generalConstantMatrixVectorIndexing = */ 1,
-    }};
+                                                  .limits = {
+                                                      .nonInductiveForLoops = true,
+                                                      .whileLoops = true,
+                                                      .doWhileLoops = true,
+                                                      .generalUniformIndexing = true,
+                                                      .generalAttributeMatrixVectorIndexing = true,
+                                                      .generalVaryingIndexing = true,
+                                                      .generalSamplerIndexing = true,
+                                                      .generalVariableIndexing = true,
+                                                      .generalConstantMatrixVectorIndexing = true,
+                                                  }};
 
-std::optional<std::vector<unsigned int>>
-compileSingleShader(const std::string &shaderSource, EShLanguage type, const std::string &name) {
+auto compileSingleShader(const std::string &shaderSource, EShLanguage type, const std::string &name)
+    -> std::optional<std::vector<unsigned int>> {
     std::cout << "Compiling " << name << " (";
     auto start = std::chrono::steady_clock::now();
     glslang::TProgram program;
@@ -185,8 +183,7 @@ compileSingleShader(const std::string &shaderSource, EShLanguage type, const std
     shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
     shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_6);
 
-    EShMessages messages =
-        static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules | EShMsgEnhanced);
+    auto messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules | EShMsgEnhanced);
 
     if (!shader.parse(&DefaultTBuiltInResource, 100, false, messages)) {
         std::cerr << "GLSL parsing failed:\n" << shader.getInfoLog() << std::endl;
@@ -218,7 +215,7 @@ compileSingleShader(const std::string &shaderSource, EShLanguage type, const std
     return spirv;
 }
 
-std::string readFile(const std::filesystem::path &path) {
+auto readFile(const std::filesystem::path &path) -> std::string {
     std::ifstream file(path);
 
     if (!file) {
@@ -234,7 +231,7 @@ std::string readFile(const std::filesystem::path &path) {
     return contents;
 }
 
-std::span<const uint32_t> ResourcePreprocessor::getShaderSpirV(const std::string &key) {
+auto ResourcePreprocessor::getShaderSpirV(const std::string &key) -> std::span<const uint32_t> {
     static std::vector<uint32_t> empty;
 
     std::unique_lock ul{resouceMutex};
@@ -258,11 +255,12 @@ std::span<const uint32_t> ResourcePreprocessor::getShaderSpirV(const std::string
     return std::visit(v, it->second);
 }
 
-std::function<std::span<const uint32_t>(const std::string &)> ResourcePreprocessor::spirVGetter() {
+auto ResourcePreprocessor::spirVGetter()
+    -> std::function<std::span<const uint32_t>(const std::string &)> {
     return [&](const std::string &key) -> std::span<const uint32_t> { return getShaderSpirV(key); };
 }
 
-const TextureData &ResourcePreprocessor::getTextureData(const std::string &key) {
+auto ResourcePreprocessor::getTextureData(const std::string &key) -> const TextureData & {
     static TextureData empty;
 
     std::unique_lock ul{resouceMutex};
@@ -287,9 +285,9 @@ const TextureData &ResourcePreprocessor::getTextureData(const std::string &key) 
     return std::visit(v, it->second);
 }
 
-std::function<
-    std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>>(const std::string &)>
-ResourcePreprocessor::textureGetter() {
+auto ResourcePreprocessor::textureGetter()
+    -> std::function<std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>>(
+        const std::string &)> {
     return [&](const std::string &key)
                -> std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>> {
         const TextureData &data = getTextureData(key);
@@ -297,7 +295,7 @@ ResourcePreprocessor::textureGetter() {
         return {{data.width, data.height}, span};
     };
 }
-std::string ResourcePreprocessor::getKey(const std::filesystem::path &path) {
+auto ResourcePreprocessor::getKey(const std::filesystem::path &path) -> std::string {
     const std::filesystem::path relative = std::filesystem::relative(path, inputDir);
     std::vector<std::string> dirs;
     for (const auto &d : relative) {
@@ -316,8 +314,8 @@ std::string ResourcePreprocessor::getKey(const std::filesystem::path &path) {
     return key;
 }
 
-std::optional<ResourcePreprocessor::resource_ptr> parseShader(const std::filesystem::path &path,
-                                                              const std::string &key) {
+auto parseShader(const std::filesystem::path &path, const std::string &key)
+    -> std::optional<ResourcePreprocessor::resource_ptr> {
 
     std::optional<std::vector<uint32_t>> vecOpt;
 
@@ -349,10 +347,10 @@ std::optional<ResourcePreprocessor::resource_ptr> parseShader(const std::filesys
 }
 
 using uniqueStbPixels =
-    std::unique_ptr<stbi_uc, decltype([](auto *pixels) { stbi_image_free(pixels); })>;
+    std::unique_ptr<stbi_uc, decltype([](auto *pixels) -> void { stbi_image_free(pixels); })>;
 
-std::optional<ResourcePreprocessor::resource_ptr> parseTexture(const std::filesystem::path &path,
-                                                               const std::string &name) {
+auto parseTexture(const std::filesystem::path &path, const std::string &name)
+    -> std::optional<ResourcePreprocessor::resource_ptr> {
     std::unique_ptr<TextureData> resouce = std::make_unique<TextureData>();
 
     int width, height, channels;
@@ -376,8 +374,8 @@ std::optional<ResourcePreprocessor::resource_ptr> parseTexture(const std::filesy
     return resouce;
 }
 
-std::optional<ResourcePreprocessor::resource_ptr> parseMesh(const std::filesystem::path &path,
-                                                            const std::string &name) {
+auto parseMesh(const std::filesystem::path &path, const std::string &name)
+    -> std::optional<ResourcePreprocessor::resource_ptr> {
     std::unique_ptr<MeshData> resouce = std::make_unique<MeshData>();
 
     std::string warn;
@@ -433,7 +431,8 @@ void ResourcePreprocessor::work() {
                 auto &someData = data.at(key);
 
                 std::uint64_t dest_mtime = std::visit(
-                    Visitor{[](const auto &ptr) { return getTimestamp(*ptr); }}, someData);
+                    Visitor{[](const auto &ptr) -> const uint64_t & { return getTimestamp(*ptr); }},
+                    someData);
 
                 if (src_mtime <= dest_mtime) {
                     continue;
@@ -454,13 +453,14 @@ void ResourcePreprocessor::work() {
 
                 if (!resource) {
                     std::cout << "failed to parse: " << path << "\n";
-                    std::visit(
-                        Visitor{[&src_mtime](const auto &ptr) { setTimestamp(*ptr, src_mtime); }},
-                        someData);
+                    std::visit(Visitor{[&src_mtime](const auto &ptr) -> void {
+                                   setTimestamp(*ptr, src_mtime);
+                               }},
+                               someData);
                     continue;
                 }
 
-                Visitor v{[&src_mtime](const auto &ptr) { setTimestamp(*ptr, src_mtime); }};
+                Visitor v{[&src_mtime](const auto &ptr) -> void { setTimestamp(*ptr, src_mtime); }};
                 std::visit(v, resource.value());
 
                 data[key] = std::move(resource.value());
@@ -500,7 +500,7 @@ void ResourcePreprocessor::startUpdater() {
 
     running = true;
     terminate = false;
-    worker = std::thread([this]() { this->work(); });
+    worker = std::thread([this]() -> void { this->work(); });
 }
 
 void ResourcePreprocessor::stopUpdater() {
@@ -633,13 +633,13 @@ void write(const unsigned int &ui, std::ostream &of, [[maybe_unused]] size_t ind
 void write(const stbi_uc &uc, std::ostream &of, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
     of << std::hex << std::setfill('0');
-    of << "0x" << std::setw(2) << (short)uc;
+    of << "0x" << std::setw(2) << static_cast<short>(uc);
 }
 
 void write(const tinyobj::texture_type_t &e, std::ostream &of, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
     of << std::hex << std::setfill('0');
-    of << "tinyobj::texture_type_t(0x" << std::setw(3) << (size_t)e << ")";
+    of << "tinyobj::texture_type_t(0x" << std::setw(3) << static_cast<size_t>(e) << ")";
 }
 
 template <typename T>
@@ -944,7 +944,7 @@ void writeData(const std::string &key, ResourcePreprocessor::resource_ptr &resou
     std::vector<std::stringstream> s;
     s.resize(artefacts.size());
 
-    Visitor v{[&](const std::unique_ptr<ShaderData> &shaderData) {
+    Visitor v{[&](const std::unique_ptr<ShaderData> &shaderData) -> void {
                   s[0] << "#include \"ShaderData.h\"\n"
                        << "#include <stdint.h>\n\n";
 
@@ -956,7 +956,7 @@ void writeData(const std::string &key, ResourcePreprocessor::resource_ptr &resou
                   write(*shaderData, s[0], 1, key);
                   s[0] << ";";
               },
-              [&](const std::unique_ptr<TextureData> &textureData) {
+              [&](const std::unique_ptr<TextureData> &textureData) -> void {
                   s[0] << "#include \"TextureData.h\"\n";
                   s[0] << "#include <stb_image.h>\n\n";
 
@@ -968,7 +968,7 @@ void writeData(const std::string &key, ResourcePreprocessor::resource_ptr &resou
                   write(*textureData, s[0], 1, key);
                   s[0] << ";";
               },
-              [&]([[maybe_unused]] const std::unique_ptr<MeshData> &meshData) {
+              [&]([[maybe_unused]] const std::unique_ptr<MeshData> &meshData) -> void {
                   s[0] << "#include \"MeshData.hpp\"\n\nMeshData " << key << "_data = ";
                   write(*meshData, s[0], 1, key);
                   s[0] << ";";
@@ -1047,7 +1047,7 @@ void ResourcePreprocessor::preprocess() {
             return;
         }
 
-        Visitor v{[&src_mtime](const auto &ptr) { setTimestamp(*ptr, src_mtime); }};
+        Visitor v{[&src_mtime](const auto &ptr) -> void { setTimestamp(*ptr, src_mtime); }};
         std::visit(v, resource.value());
 
         writeData(key, resource.value(), artefacts);

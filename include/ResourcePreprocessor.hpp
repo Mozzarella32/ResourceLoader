@@ -6,11 +6,12 @@
 #include <filesystem>
 #include <functional>
 #include <mutex>
+#include <span>
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 #include <variant>
-#include <span>
 
 struct ShaderData {
     uint64_t timestamp;
@@ -35,25 +36,24 @@ class ResourcePreprocessor {
     std::filesystem::path outputDir;
 
   public:
-    ResourcePreprocessor(const std::filesystem::path &inputDir,
-                         const std::filesystem::path &outputDir)
-        : inputDir(inputDir), outputDir(outputDir) {}
+    ResourcePreprocessor(std::filesystem::path inputDir, std::filesystem::path outputDir)
+        : inputDir(std::move(inputDir)), outputDir(std::move(outputDir)) {}
 
     ~ResourcePreprocessor();
 
   public:
     // key is in format [name]_[type]
-    std::span<const uint32_t> getShaderSpirV(const std::string &key);
+    auto getShaderSpirV(const std::string &key) -> std::span<const uint32_t>;
 
-    std::function<std::span<const uint32_t>(const std::string &)> spirVGetter();
+    auto spirVGetter() -> std::function<std::span<const uint32_t>(const std::string &)>;
 
-    const TextureData &getTextureData(const std::string &key);
+    auto getTextureData(const std::string &key) -> const TextureData &;
 
-    std::function<std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>>(
-        const std::string &)>
-    textureGetter();
+    auto textureGetter()
+        -> std::function<std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>>(
+            const std::string &)>;
 
-    std::string getKey(const std::filesystem::path &path);
+    auto getKey(const std::filesystem::path &path) -> std::string;
 
   public:
     void preprocess();

@@ -1,5 +1,7 @@
 #pragma once
 
+extern "C" {
+
 #include <stb_image.h>
 #include <stdint.h>
 
@@ -10,3 +12,4 @@ typedef struct {
     const stbi_uc *pixels;
     uint64_t pixels_len;
 } TextureData_c;
+}

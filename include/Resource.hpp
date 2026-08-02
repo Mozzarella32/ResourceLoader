@@ -15,16 +15,16 @@
 struct PreprocessorDataHolder {
   private:
     std::unordered_map<std::string, std::variant<ShaderData_c *, TextureData_c *, MeshData *>> data;
-    PreprocessorDataHolder() {};
-    static PreprocessorDataHolder &Instance() {
+    PreprocessorDataHolder() = default;
+    static auto Instance() -> PreprocessorDataHolder & {
         static PreprocessorDataHolder instance;
         return instance;
     }
 
   public:
-    static std::unordered_map<std::string,
-                              std::variant<ShaderData_c *, TextureData_c *, MeshData *>> &
-    getData() {
+    static auto getData()
+        -> std::unordered_map<std::string,
+                              std::variant<ShaderData_c *, TextureData_c *, MeshData *>> & {
         return Instance().data;
     }
     static void setData(
@@ -43,4 +43,4 @@ template <hasTimestamp T> void setTimestamp(T &t, const uint64_t &timestamp) {
     t.timestamp = timestamp;
 }
 
-template <hasTimestamp T> const uint64_t &getTimestamp(const T &t) { return t.timestamp; }
+template <hasTimestamp T> auto getTimestamp(const T &t) -> const uint64_t & { return t.timestamp; }
