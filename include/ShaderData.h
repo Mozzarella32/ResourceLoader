@@ -1,7 +1,5 @@
 #pragma once
 
-extern "C" {
-
 #include <stdint.h>
 
 typedef struct {
@@ -9,4 +7,3 @@ typedef struct {
     const uint32_t *data;
     uint64_t data_len;
 } ShaderData_c;
-}
