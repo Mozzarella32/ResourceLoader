@@ -33,6 +33,7 @@
 #include <span>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <tuple>
 #include <utility>
@@ -148,13 +149,12 @@ auto readFile(const std::filesystem::path &path) -> std::string {
 }
 } // namespace
 
-auto ResourcePreprocessor::getShaderSpirV(const std::string &key) -> std::span<const uint32_t> {
-    static std::vector<uint32_t> empty;
-
+auto ResourcePreprocessor::getShaderSpirV(std::string_view key) -> std::span<const uint32_t> {
     const std::unique_lock uniqueLock{resouceMutex};
-    auto valueIter = data.find(key);
+    auto valueIter = data.find(std::string{key});
     if (valueIter == data.end()) {
-        throw std::runtime_error{"failed to find shader: " + key};
+        std::cerr << "failed to find shader: " << key << "\n";
+        return {};
     }
 
     // clang-format off
@@ -164,7 +164,7 @@ auto ResourcePreprocessor::getShaderSpirV(const std::string &key) -> std::span<c
         },
         [&key]([[maybe_unused]]const auto& other) -> std::span<uint32_t> {
             std::cerr << "getShaderSpirV with non shader resouce: " << key << "\n";
-            return empty;
+            return {};
         }
     };
     // clang-format on
@@ -173,15 +173,15 @@ auto ResourcePreprocessor::getShaderSpirV(const std::string &key) -> std::span<c
 }
 
 auto ResourcePreprocessor::spirVGetter()
-    -> std::function<std::span<const uint32_t>(const std::string &)> {
-    return [&](const std::string &key) -> std::span<const uint32_t> { return getShaderSpirV(key); };
+    -> std::function<std::span<const uint32_t>(std::string_view)> {
+    return [&](std::string_view key) -> std::span<const uint32_t> { return getShaderSpirV(key); };
 }
 
-auto ResourcePreprocessor::getTextureData(const std::string &key) -> const TextureData & {
+auto ResourcePreprocessor::getTextureData(std::string_view key) -> const TextureData & {
     static TextureData empty;
 
     const std::unique_lock uniqueLock{resouceMutex};
-    auto iter = data.find(key);
+    auto iter = data.find(std::string{key});
     if (iter == data.end()) {
         std::cerr << "failed to find textureData: " << key << "\n";
         return empty;
@@ -203,12 +203,11 @@ auto ResourcePreprocessor::getTextureData(const std::string &key) -> const Textu
 }
 
 auto ResourcePreprocessor::textureGetter() -> std::function<
-    std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>>(const std::string &)> {
-    return [&](const std::string &key)
+    std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>>(std::string_view)> {
+    return [&](std::string_view key)
                -> std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>> {
         const TextureData &data = getTextureData(key);
-        return {{data.width, data.height},
-                std::as_bytes(std::span(data.pixels.data(), data.pixels.size()))};
+        return {{data.width, data.height}, std::as_bytes(std::span{data.pixels})};
     };
 }
 auto ResourcePreprocessor::getKey(const std::filesystem::path &path) -> std::string {

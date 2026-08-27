@@ -13,6 +13,7 @@
 #include <mutex>
 #include <span>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <tuple>
 #include <unordered_map>
@@ -57,14 +58,14 @@ class ResourcePreprocessor {
     ~ResourcePreprocessor();
 
     // key is in format [name]_[type]
-    auto getShaderSpirV(const std::string &key) -> std::span<const uint32_t>;
+    auto getShaderSpirV(std::string_view key) -> std::span<const uint32_t>;
 
-    auto spirVGetter() -> std::function<std::span<const uint32_t>(const std::string &)>;
+    auto spirVGetter() -> std::function<std::span<const uint32_t>(std::string_view)>;
 
-    auto getTextureData(const std::string &key) -> const TextureData &;
+    auto getTextureData(std::string_view key) -> const TextureData &;
 
     auto textureGetter() -> std::function<
-        std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>>(const std::string &)>;
+        std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>>(std::string_view)>;
 
     auto getKey(const std::filesystem::path &path) -> std::string;
 
