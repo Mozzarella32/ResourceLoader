@@ -1,4 +1,15 @@
-Checks: 'modernize-*'
+Checks: 'modernize-*, bugprone-*, cert-*, clang-analyzer-*, concurrency-*, cppcoreguidelines-*, misc-*, performance-*, portability-*, readability-*,  -portability-avoid-pragma-once, -misc-static-assert, -cert-dcl03-c'
+CheckOptions:
+  - key: modernize-use-trailing-return-type.TransformLambdas
+    value: none
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: 2
+  - key: cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses
+    value: "::std::map;::std::unordered_map;::std::flat_map;::std::span"
+  - key: readability-identifier-length.IgnoredVariableNames
+    value: ^[ijkuv_]$
+  # - key: readability-identifier-length.MinimumBindingNameLength
+  #   value: 1
 # CheckOptions:
 #   - key: readability-identifier-naming.TypedefCase
 #     value: CamelCase

@@ -15,7 +15,16 @@ set(TINY_OBJ_LOADER_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/submodules/tinyobjloader"
 
 find_package(glslang QUIET)
 
-if(NOT glslang_FOUND)
+if(glslang_FOUND)
+    find_path(GLSLANG_INCLUDE_DIR
+        NAMES SPIRV/GlslangToSpv.h
+        HINTS
+            ${glslang_INCLUDE_DIRS}
+            ${GLSLANG_INCLUDE_DIR}
+        PATH_SUFFIXES
+            glslang
+    )
+else()
     set(GLSLANG_EXTERNAL_ROOT "${CMAKE_SOURCE_DIR}/external/glslang")
 
     message(STATUS "glslang not found on system.")
@@ -80,27 +89,21 @@ file(GLOB_RECURSE SRCS
 add_library(${PROJECT_NAME} STATIC ${SRCS})
 
 target_include_directories(${PROJECT_NAME} PUBLIC
-  "${CMAKE_CURRENT_SOURCE_DIR}/include"
-  "${CMAKE_CURRENT_SOURCE_DIR}/submodules/Visitor"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/submodules/Visitor"
 )
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
-    ${TINY_OBJ_LOADER_INCLUDE_DIR}
-    ${STB_INCLUDE_DIR}
+    "${TINY_OBJ_LOADER_INCLUDE_DIR}"
+    "${STB_INCLUDE_DIR}"
 )
 
-# if (DEFINED glslang_SOURCE_DIR)
-#     set(GLSLANG_INCLUDES ${glslang_SOURCE_DIR})
-# endif()
-# if (DEFINED glslang_BINARY_DIR)
-#     list(APPEND GLSLANG_INCLUDES ${glslang_BINARY_DIR})
-# endif()
-
-# if (GLSLANG_INCLUDES)
-#     target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${GLSLANG_INCLUDES})
-# endif()
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
+    "${GLSLANG_INCLUDE_DIR}"
+)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     glslang::glslang
     glslang::SPIRV
+    glslang::glslang-default-resource-limits
 )

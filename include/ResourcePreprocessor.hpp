@@ -1,17 +1,24 @@
 #pragma once
+#include "MeshData.hpp"
 
-#include "Resource.hpp"
+#include <stb_image.h>
 
 #include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <span>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <variant>
+#include <vector>
 
 struct ShaderData {
     uint64_t timestamp;
@@ -36,12 +43,19 @@ class ResourcePreprocessor {
     std::filesystem::path outputDir;
 
   public:
+    [[nodiscard]] auto getInputDir() const -> const std::filesystem::path &;
+    [[nodiscard]] auto getOutputDir() const -> const std::filesystem::path &;
+
     ResourcePreprocessor(std::filesystem::path inputDir, std::filesystem::path outputDir)
         : inputDir(std::move(inputDir)), outputDir(std::move(outputDir)) {}
 
+    ResourcePreprocessor(const ResourcePreprocessor &) noexcept = delete;
+    ResourcePreprocessor(ResourcePreprocessor &&) noexcept = delete;
+    auto operator=(const ResourcePreprocessor &) noexcept = delete;
+    auto operator=(ResourcePreprocessor &&) noexcept = delete;
+
     ~ResourcePreprocessor();
 
-  public:
     // key is in format [name]_[type]
     auto getShaderSpirV(const std::string &key) -> std::span<const uint32_t>;
 
@@ -49,19 +63,16 @@ class ResourcePreprocessor {
 
     auto getTextureData(const std::string &key) -> const TextureData &;
 
-    auto textureGetter()
-        -> std::function<std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>>(
-            const std::string &)>;
+    auto textureGetter() -> std::function<
+        std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>>(const std::string &)>;
 
     auto getKey(const std::filesystem::path &path) -> std::string;
 
-  public:
     void preprocess();
 
     using resource_ptr = std::variant<std::unique_ptr<ShaderData>, std::unique_ptr<TextureData>,
                                       std::unique_ptr<MeshData>>;
 
-  private:
     static const constexpr std::array shaderExtensions = {
         "frag", "vert", "geom", "comp", "tesc", "tese", "spv",
     };
@@ -70,6 +81,7 @@ class ResourcePreprocessor {
 
     static const constexpr std::array meshExtensions = {"obj"};
 
+  private:
     std::unordered_map<std::string, resource_ptr> data;
 
     std::mutex resouceMutex;
@@ -78,13 +90,21 @@ class ResourcePreprocessor {
     bool terminate : 1 = false;
     bool running : 1 = false;
 
-    void work();
-
-  public:
-    void startUpdater();
-    void stopUpdater();
-
     bool shadersNeedUpdating = false;
     bool texturesNeedUpdating = false;
     bool meshesNeedUpdate = false;
+
+    std::chrono::milliseconds refreshTime = defaultRefreshTime;
+
+    void work();
+
+  public:
+    static const constexpr auto defaultRefreshTime = std::chrono::milliseconds(16);
+
+    void startUpdater(std::chrono::milliseconds refreshTime = defaultRefreshTime);
+    void stopUpdater();
+
+    auto shadersNeedUpdatingClear() -> bool;
+    auto texturesNeedUpdatingClear() -> bool;
+    auto meshesNeedUpdateClear() -> bool;
 };

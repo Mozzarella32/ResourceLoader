@@ -1,174 +1,89 @@
 #include "ResourcePreprocessor.hpp"
+#include "MeshData.hpp"
 #include "Resource.hpp"
-#include "Visitor.hpp"
+#include "ShaderData.h"
+#include "TextureData.h"
 
-#include <cstdint>
+#include <Visitor.hpp>
+
+#include <SPIRV/GlslangToSpv.h>
+#include <glslang/Public/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
-#include <glslang/SPIRV/GlslangToSpv.h>
 
+#include <tiny_obj_loader.h>
+
+#include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <concepts>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <format>
 #include <fstream>
+#include <functional>
+#include <iomanip>
 #include <iostream>
+#include <map>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <print>
+#include <ranges>
+#include <span>
+#include <sstream>
 #include <string>
+#include <thread>
+#include <tuple>
+#include <utility>
+#include <variant>
+#include <vector>
 
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <tuple>
-#include <vector>
 #ifdef _WIN32
 #include <io.h>
 #define stat _stat
 #endif
 
+namespace {
 auto get_mtime_ms(const std::string &filename) -> uint64_t {
-    struct stat result;
+    struct stat result{};
     if (stat(filename.c_str(), &result) != 0) {
         return 0;
     }
 
 #ifdef __APPLE__
-    uint64_t sec = result.st_mtimespec.tv_sec;
-    uint64_t nsec = result.st_mtimespec.tv_nsec;
-#elif defined(_POSIX_VERSION)
+    const uint64_t sec = result.st_mtimespec.tv_sec;
+    cosnt uint64_t nsec = result.st_mtimespec.tv_nsec;
+#elifdef _POSIX_VERSION
 #if defined(st_mtim)
-    uint64_t sec = result.st_mtim.tv_sec;
-    uint64_t nsec = result.st_mtim.tv_nsec;
+    const uint64_t sec = result.st_mtim.tv_sec;
+    const uint64_t nsec = result.st_mtim.tv_nsec;
 #else
-    uint64_t sec = result.st_mtime;
-    uint64_t nsec = 0;
+    const uint64_t sec = result.st_mtime;
+    const uint64_t nsec = 0;
 #endif
 #else
-    uint64_t sec = result.st_mtime;
-    uint64_t nsec = 0;
+    const uint64_t sec = result.st_mtime;
+    const uint64_t nsec = 0;
 #endif
 
-    uint64_t ms = sec * 1000ULL + nsec / 1000000ULL;
-    return ms;
+    static constinit const uint64_t secToMsec = 1000ULL;
+    static constinit const uint64_t nsecTomsec = 1000000ULL;
+    return (sec * secToMsec) + (nsec / nsecTomsec);
 }
+} // namespace
 
 void ResourcePreprocessor::info() const {
     std::cout << "Input dir: " << (inputDir.empty() ? "<none>" : inputDir) << "\n";
     std::cout << "Output dir: " << (outputDir.empty() ? "<none>" : outputDir) << "\n";
 }
+auto ResourcePreprocessor::getInputDir() const -> const std::filesystem::path & { return inputDir; }
+auto ResourcePreprocessor::getOutputDir() const -> const std::filesystem::path & {
+    return outputDir;
+}
 
-const TBuiltInResource DefaultTBuiltInResource = {.maxLights = 32,
-                                                  .maxClipPlanes = 6,
-                                                  .maxTextureUnits = 32,
-                                                  .maxTextureCoords = 32,
-                                                  .maxVertexAttribs = 64,
-                                                  .maxVertexUniformComponents = 4096,
-                                                  .maxVaryingFloats = 64,
-                                                  .maxVertexTextureImageUnits = 32,
-                                                  .maxCombinedTextureImageUnits = 80,
-                                                  .maxTextureImageUnits = 32,
-                                                  .maxFragmentUniformComponents = 4096,
-                                                  .maxDrawBuffers = 32,
-                                                  .maxVertexUniformVectors = 128,
-                                                  .maxVaryingVectors = 8,
-                                                  .maxFragmentUniformVectors = 16,
-                                                  .maxVertexOutputVectors = 16,
-                                                  .maxFragmentInputVectors = 15,
-                                                  .minProgramTexelOffset = -8,
-                                                  .maxProgramTexelOffset = 7,
-                                                  .maxClipDistances = 8,
-                                                  .maxComputeWorkGroupCountX = 65535,
-                                                  .maxComputeWorkGroupCountY = 65535,
-                                                  .maxComputeWorkGroupCountZ = 65535,
-                                                  .maxComputeWorkGroupSizeX = 1024,
-                                                  .maxComputeWorkGroupSizeY = 1024,
-                                                  .maxComputeWorkGroupSizeZ = 64,
-                                                  .maxComputeUniformComponents = 1024,
-                                                  .maxComputeTextureImageUnits = 16,
-                                                  .maxComputeImageUniforms = 8,
-                                                  .maxComputeAtomicCounters = 8,
-                                                  .maxComputeAtomicCounterBuffers = 1,
-                                                  .maxVaryingComponents = 60,
-                                                  .maxVertexOutputComponents = 64,
-                                                  .maxGeometryInputComponents = 64,
-                                                  .maxGeometryOutputComponents = 128,
-                                                  .maxFragmentInputComponents = 128,
-                                                  .maxImageUnits = 8,
-                                                  .maxCombinedImageUnitsAndFragmentOutputs = 8,
-                                                  .maxCombinedShaderOutputResources = 8,
-                                                  .maxImageSamples = 0,
-                                                  .maxVertexImageUniforms = 0,
-                                                  .maxTessControlImageUniforms = 0,
-                                                  .maxTessEvaluationImageUniforms = 0,
-                                                  .maxGeometryImageUniforms = 0,
-                                                  .maxFragmentImageUniforms = 8,
-                                                  .maxCombinedImageUniforms = 8,
-                                                  .maxGeometryTextureImageUnits = 16,
-                                                  .maxGeometryOutputVertices = 256,
-                                                  .maxGeometryTotalOutputComponents = 1024,
-                                                  .maxGeometryUniformComponents = 1024,
-                                                  .maxGeometryVaryingComponents = 64,
-                                                  .maxTessControlInputComponents = 128,
-                                                  .maxTessControlOutputComponents = 128,
-                                                  .maxTessControlTextureImageUnits = 16,
-                                                  .maxTessControlUniformComponents = 1024,
-                                                  .maxTessControlTotalOutputComponents = 4096,
-                                                  .maxTessEvaluationInputComponents = 128,
-                                                  .maxTessEvaluationOutputComponents = 128,
-                                                  .maxTessEvaluationTextureImageUnits = 16,
-                                                  .maxTessEvaluationUniformComponents = 1024,
-                                                  .maxTessPatchComponents = 120,
-                                                  .maxPatchVertices = 32,
-                                                  .maxTessGenLevel = 64,
-                                                  .maxViewports = 16,
-                                                  .maxVertexAtomicCounters = 0,
-                                                  .maxTessControlAtomicCounters = 0,
-                                                  .maxTessEvaluationAtomicCounters = 0,
-                                                  .maxGeometryAtomicCounters = 0,
-                                                  .maxFragmentAtomicCounters = 8,
-                                                  .maxCombinedAtomicCounters = 8,
-                                                  .maxAtomicCounterBindings = 1,
-                                                  .maxVertexAtomicCounterBuffers = 0,
-                                                  .maxTessControlAtomicCounterBuffers = 0,
-                                                  .maxTessEvaluationAtomicCounterBuffers = 0,
-                                                  .maxGeometryAtomicCounterBuffers = 0,
-                                                  .maxFragmentAtomicCounterBuffers = 1,
-                                                  .maxCombinedAtomicCounterBuffers = 1,
-                                                  .maxAtomicCounterBufferSize = 16384,
-                                                  .maxTransformFeedbackBuffers = 4,
-                                                  .maxTransformFeedbackInterleavedComponents = 64,
-                                                  .maxCullDistances = 8,
-                                                  .maxCombinedClipAndCullDistances = 8,
-                                                  .maxSamples = 4,
-                                                  .maxMeshOutputVerticesNV = 256,
-                                                  .maxMeshOutputPrimitivesNV = 512,
-                                                  .maxMeshWorkGroupSizeX_NV = 32,
-                                                  .maxMeshWorkGroupSizeY_NV = 1,
-                                                  .maxMeshWorkGroupSizeZ_NV = 1,
-                                                  .maxTaskWorkGroupSizeX_NV = 32,
-                                                  .maxTaskWorkGroupSizeY_NV = 1,
-                                                  .maxTaskWorkGroupSizeZ_NV = 1,
-                                                  .maxMeshViewCountNV = 4,
-                                                  .maxMeshOutputVerticesEXT = 256,
-                                                  .maxMeshOutputPrimitivesEXT = 256,
-                                                  .maxMeshWorkGroupSizeX_EXT = 128,
-                                                  .maxMeshWorkGroupSizeY_EXT = 128,
-                                                  .maxMeshWorkGroupSizeZ_EXT = 128,
-                                                  .maxTaskWorkGroupSizeX_EXT = 128,
-                                                  .maxTaskWorkGroupSizeY_EXT = 128,
-                                                  .maxTaskWorkGroupSizeZ_EXT = 128,
-                                                  .maxMeshViewCountEXT = 4,
-                                                  .maxDualSourceDrawBuffersEXT = 1,
-
-                                                  .limits = {
-                                                      .nonInductiveForLoops = true,
-                                                      .whileLoops = true,
-                                                      .doWhileLoops = true,
-                                                      .generalUniformIndexing = true,
-                                                      .generalAttributeMatrixVectorIndexing = true,
-                                                      .generalVaryingIndexing = true,
-                                                      .generalSamplerIndexing = true,
-                                                      .generalVariableIndexing = true,
-                                                      .generalConstantMatrixVectorIndexing = true,
-                                                  }};
-
+namespace {
 auto compileSingleShader(const std::string &shaderSource, EShLanguage type, const std::string &name)
     -> std::optional<std::vector<unsigned int>> {
     std::cout << "Compiling " << name << " (";
@@ -179,26 +94,27 @@ auto compileSingleShader(const std::string &shaderSource, EShLanguage type, cons
     shader.setStrings(&c_str, 1);
     shader.setOverrideVersion(0);
 
-    shader.setEnvInput(glslang::EShSourceGlsl, type, glslang::EShClientVulkan, 100);
+    static constinit const int vulkanGlslVersion = 100;
+    shader.setEnvInput(glslang::EShSourceGlsl, type, glslang::EShClientVulkan, vulkanGlslVersion);
     shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
     shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_6);
 
     auto messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules | EShMsgEnhanced);
 
-    if (!shader.parse(&DefaultTBuiltInResource, 100, false, messages)) {
-        std::cerr << "GLSL parsing failed:\n" << shader.getInfoLog() << std::endl;
+    if (!shader.parse(GetDefaultResources(), vulkanGlslVersion, false, messages)) {
+        std::cerr << "GLSL parsing failed:\n" << shader.getInfoLog() << '\n';
         return std::nullopt;
     }
 
     program.addShader(&shader);
 
     if (!program.link(messages)) {
-        std::cerr << "GLSL linking failed:\n" << program.getInfoLog() << std::endl;
+        std::cerr << "GLSL linking failed:\n" << program.getInfoLog() << '\n';
         return std::nullopt;
     }
 
-    if (!program.getIntermediate(type)) {
-        std::cerr << "Failed to get shader intermediate after parsing." << std::endl;
+    if (program.getIntermediate(type) == nullptr) {
+        std::cerr << "Failed to get shader intermediate after parsing." << '\n';
         return std::nullopt;
     }
 
@@ -216,7 +132,7 @@ auto compileSingleShader(const std::string &shaderSource, EShLanguage type, cons
 }
 
 auto readFile(const std::filesystem::path &path) -> std::string {
-    std::ifstream file(path);
+    const std::ifstream file(path);
 
     if (!file) {
         return "";
@@ -224,19 +140,20 @@ auto readFile(const std::filesystem::path &path) -> std::string {
 
     std::string contents;
     if (file) {
-        std::ostringstream ss;
-        ss << file.rdbuf();
-        contents = ss.str();
+        std::ostringstream buff;
+        buff << file.rdbuf();
+        contents = buff.str();
     }
     return contents;
 }
+} // namespace
 
 auto ResourcePreprocessor::getShaderSpirV(const std::string &key) -> std::span<const uint32_t> {
     static std::vector<uint32_t> empty;
 
-    std::unique_lock ul{resouceMutex};
-    auto it = data.find(key);
-    if (it == data.end()) {
+    const std::unique_lock uniqueLock{resouceMutex};
+    auto valueIter = data.find(key);
+    if (valueIter == data.end()) {
         throw std::runtime_error{"failed to find shader: " + key};
     }
 
@@ -252,7 +169,7 @@ auto ResourcePreprocessor::getShaderSpirV(const std::string &key) -> std::span<c
     };
     // clang-format on
 
-    return std::visit(v, it->second);
+    return std::visit(v, valueIter->second);
 }
 
 auto ResourcePreprocessor::spirVGetter()
@@ -263,9 +180,9 @@ auto ResourcePreprocessor::spirVGetter()
 auto ResourcePreprocessor::getTextureData(const std::string &key) -> const TextureData & {
     static TextureData empty;
 
-    std::unique_lock ul{resouceMutex};
-    auto it = data.find(key);
-    if (it == data.end()) {
+    const std::unique_lock uniqueLock{resouceMutex};
+    auto iter = data.find(key);
+    if (iter == data.end()) {
         std::cerr << "failed to find textureData: " << key << "\n";
         return empty;
     }
@@ -273,7 +190,7 @@ auto ResourcePreprocessor::getTextureData(const std::string &key) -> const Textu
     // clang-format off
     Visitor v{
         [](const std::unique_ptr<TextureData>& textureData) -> const auto& {
-            return *textureData.get();
+            return *textureData;
         },
         [&key]([[maybe_unused]]const auto& other) -> const auto& {
             std::cerr << "getShaderSpirV with non shader resouce: " << key << "\n";
@@ -282,25 +199,23 @@ auto ResourcePreprocessor::getTextureData(const std::string &key) -> const Textu
     };
     // clang-format on
 
-    return std::visit(v, it->second);
+    return std::visit(v, iter->second);
 }
 
-auto ResourcePreprocessor::textureGetter()
-    -> std::function<std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>>(
-        const std::string &)> {
+auto ResourcePreprocessor::textureGetter() -> std::function<
+    std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>>(const std::string &)> {
     return [&](const std::string &key)
-               -> std::tuple<std::pair<uint32_t, uint32_t>, std::span<const unsigned char>> {
+               -> std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>> {
         const TextureData &data = getTextureData(key);
-        std::span<const stbi_uc> span(data.pixels.data(), data.pixels.size());
-        return {{data.width, data.height}, span};
+        return {{data.width, data.height},
+                std::as_bytes(std::span(data.pixels.data(), data.pixels.size()))};
     };
 }
 auto ResourcePreprocessor::getKey(const std::filesystem::path &path) -> std::string {
     const std::filesystem::path relative = std::filesystem::relative(path, inputDir);
-    std::vector<std::string> dirs;
-    for (const auto &d : relative) {
-        dirs.push_back(d.string());
-    }
+    std::vector<std::string> dirs =
+        relative | std::views::transform([](const auto &dir) { return dir.string(); }) |
+        std::ranges::to<std::vector>();
     dirs.pop_back();
     std::string key;
     for (const auto &dir : dirs) {
@@ -314,6 +229,7 @@ auto ResourcePreprocessor::getKey(const std::filesystem::path &path) -> std::str
     return key;
 }
 
+namespace {
 auto parseShader(const std::filesystem::path &path, const std::string &key)
     -> std::optional<ResourcePreprocessor::resource_ptr> {
 
@@ -351,9 +267,11 @@ using uniqueStbPixels =
 
 auto parseTexture(const std::filesystem::path &path, const std::string &name)
     -> std::optional<ResourcePreprocessor::resource_ptr> {
-    std::unique_ptr<TextureData> resouce = std::make_unique<TextureData>();
+    std::unique_ptr<TextureData> resource = std::make_unique<TextureData>();
 
-    int width, height, channels;
+    int width = 0;
+    int height = 0;
+    int channels = 0;
     uniqueStbPixels pixels;
 
     std::cout << "Decoding " << name << " (";
@@ -367,11 +285,14 @@ auto parseTexture(const std::filesystem::path &path, const std::string &name)
         return std::nullopt;
     }
 
-    resouce->width = width;
-    resouce->height = height;
-    resouce->pixels = std::vector(pixels.get(), pixels.get() + width * height * 4);
-    resouce->pixels_len = resouce->pixels.size();
-    return resouce;
+    resource->width = width;
+    resource->height = height;
+
+    const std::size_t pixelCount =
+        static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4;
+    resource->pixels.assign_range(std::span(pixels.get(), pixelCount));
+    resource->pixels_len = resource->pixels.size();
+    return resource;
 }
 
 auto parseMesh(const std::filesystem::path &path, const std::string &name)
@@ -398,6 +319,7 @@ auto parseMesh(const std::filesystem::path &path, const std::string &name)
 
     return resouce;
 }
+} // namespace
 
 void ResourcePreprocessor::work() {
 
@@ -407,7 +329,7 @@ void ResourcePreprocessor::work() {
     }
 
     while (!terminate) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        std::this_thread::sleep_for(refreshTime);
 
         try {
             for (const auto &entry : std::filesystem::recursive_directory_iterator(inputDir)) {
@@ -420,7 +342,6 @@ void ResourcePreprocessor::work() {
                 const auto extension = path.extension().string().substr(1);
                 auto basePath = outputDir / std::filesystem::relative(path, inputDir);
                 basePath.remove_filename();
-                const auto stem = path.stem();
 
                 if (!data.contains(key)) {
                     continue;
@@ -471,31 +392,31 @@ void ResourcePreprocessor::work() {
     }
 }
 
-void ResourcePreprocessor::startUpdater() {
+void ResourcePreprocessor::startUpdater(std::chrono::milliseconds refreshTime) {
     assert(!running);
+    this->refreshTime = refreshTime;
 
     auto &preprocessorData = PreprocessorDataHolder::getData();
 
-    for (const auto &it : preprocessorData) {
+    for (const auto &[key, value] : preprocessorData) {
         Visitor v{[](const ShaderData_c *shader_data) -> resource_ptr {
                       return std::make_unique<ShaderData>(
                           shader_data->timestamp,
-                          std::vector<uint32_t>{shader_data->data,
-                                                shader_data->data + shader_data->data_len},
+                          std::vector{std::from_range,
+                                      std::span(shader_data->data, shader_data->data_len)},
                           shader_data->data_len);
                   },
                   [](const TextureData_c *texture_data) -> resource_ptr {
                       return std::make_unique<TextureData>(
                           texture_data->timestamp, texture_data->width, texture_data->height,
-                          std::vector<stbi_uc>{texture_data->pixels,
-                                               texture_data->pixels + texture_data->pixels_len});
+                          std::vector{std::from_range,
+                                      std::span(texture_data->pixels, texture_data->pixels_len)});
                   },
                   [](const MeshData *mesh_data) -> resource_ptr {
-                      return std::make_unique<MeshData>(
-                          mesh_data->timestamp, std::move(mesh_data->attrib),
-                          std::move(mesh_data->shapes), std::move(mesh_data->materials));
+                      return std::make_unique<MeshData>(mesh_data->timestamp, mesh_data->attrib,
+                                                        mesh_data->shapes, mesh_data->materials);
                   }};
-        data[it.first] = std::visit(v, it.second);
+        data[key] = std::visit(v, value);
     }
 
     running = true;
@@ -510,6 +431,15 @@ void ResourcePreprocessor::stopUpdater() {
     worker.join();
     running = false;
 }
+auto ResourcePreprocessor::shadersNeedUpdatingClear() -> bool {
+    return std::exchange(shadersNeedUpdating, false);
+}
+auto ResourcePreprocessor::texturesNeedUpdatingClear() -> bool {
+    return std::exchange(texturesNeedUpdating, false);
+}
+auto ResourcePreprocessor::meshesNeedUpdateClear() -> bool {
+    return std::exchange(meshesNeedUpdate, false);
+}
 
 ResourcePreprocessor::~ResourcePreprocessor() {
     if (running) {
@@ -517,162 +447,169 @@ ResourcePreprocessor::~ResourcePreprocessor() {
     }
 }
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define Decl(name)                                                                                 \
-    of << name << " {";                                                                            \
-    of << "\n" << std::string(indent, '\t');
+    ostream << (name) << " {";                                                                     \
+    ostream << "\n" << std::string(indent, '\t');
 
 #define Decl_c(name)                                                                               \
-    of << " {";                                                                                    \
-    of << "\n" << std::string(indent, '\t');
+    ostream << " {";                                                                               \
+    ostream << "\n" << std::string(indent, '\t');
 
 #define Decl_noAggregat(name)                                                                      \
-    of << " []() {";                                                                               \
-    of << "\n" << std::string(indent, '\t');                                                       \
-    of << name << " data;";                                                                        \
-    of << "\n" << std::string(indent, '\t');
+    ostream << " []() {";                                                                          \
+    ostream << "\n" << std::string(indent, '\t');                                                  \
+    ostream << (name) << " data;";                                                                 \
+    ostream << "\n" << std::string(indent, '\t');
 
 #define Member(mem)                                                                                \
-    of << "." << #mem << " = ";                                                                    \
-    write(data.mem, of, indent + 1, key);                                                          \
-    of << ",\n" << std::string(indent, '\t');
+    ostream << "." << #mem << " = ";                                                               \
+    write(data.mem, ostream, indent + 1, key);                                                     \
+    ostream << ",\n" << std::string(indent, '\t');
 
 #define Member_noAggregat(mem)                                                                     \
-    of << "data." << #mem << " = ";                                                                \
-    write(data.mem, of, indent + 1, key);                                                          \
-    of << ";\n" << std::string(indent, '\t');
+    ostream << "data." << #mem << " = ";                                                           \
+    write(data.mem, ostream, indent + 1, key);                                                     \
+    ostream << ";\n" << std::string(indent, '\t');
 
 #define Exp(mem, exp)                                                                              \
-    of << "." << #mem << " = ";                                                                    \
-    write(exp, of, indent + 1, key);                                                               \
-    of << ",\n" << std::string(indent, '\t');
+    ostream << "." << #mem << " = ";                                                               \
+    write(exp, ostream, indent + 1, key);                                                          \
+    ostream << ",\n" << std::string(indent, '\t');
 
 #define Exp_noAggregat(mem, exp)                                                                   \
-    of << "data." << #mem << " = ";                                                                \
-    write(exp, of, indent + 1, key);                                                               \
-    of << ";\n" << std::string(indent, '\t');
+    ostream << "data." << #mem << " = ";                                                           \
+    write(exp, ostream, indent + 1, key);                                                          \
+    ostream << ";\n" << std::string(indent, '\t');
 
 #define Member_last(mem)                                                                           \
-    of << "." << #mem << " = ";                                                                    \
-    write(data.mem, of, indent + 1, key);                                                          \
-    of << ",\n" << std::string(indent - 1, '\t');                                                  \
-    of << "}";
+    ostream << "." << #mem << " = ";                                                               \
+    write(data.mem, ostream, indent + 1, key);                                                     \
+    ostream << ",\n" << std::string(indent - 1, '\t');                                             \
+    ostream << "}";
 
 #define Member_last_noAggregat(mem)                                                                \
-    of << "data." << #mem << " = ";                                                                \
-    write(data.mem, of, indent + 1, key);                                                          \
-    of << ";\n" << std::string(indent, '\t');                                                      \
-    of << "return data";                                                                           \
-    of << ";\n" << std::string(indent - 1, '\t');                                                  \
-    of << "}()";
+    ostream << "data." << #mem << " = ";                                                           \
+    write(data.mem, ostream, indent + 1, key);                                                     \
+    ostream << ";\n" << std::string(indent, '\t');                                                 \
+    ostream << "return data";                                                                      \
+    ostream << ";\n" << std::string(indent - 1, '\t');                                             \
+    ostream << "}()";
 
 #define Exp_last(mem, exp)                                                                         \
-    of << "." << #mem << " = ";                                                                    \
-    write(exp, of, indent + 1, key);                                                               \
-    of << ",\n" << std::string(indent - 1, '\t');                                                  \
-    of << "}";
+    ostream << "." << #mem << " = ";                                                               \
+    write(exp, ostream, indent + 1, key);                                                          \
+    ostream << ",\n" << std::string(indent - 1, '\t');                                             \
+    ostream << "}";
 
 #define Exp_last_noAggregat(mem, exp)                                                              \
-    of << "data." << #mem << " = ";                                                                \
-    write(exp, of, indent + 1, key);                                                               \
-    of << ";\n" << std::string(indent, '\t');                                                      \
-    of << "return data";                                                                           \
-    of << ";\n" << std::string(indent - 1, '\t');                                                  \
-    of << "}()";
+    ostream << "data." << #mem << " = ";                                                           \
+    write(exp, ostream, indent + 1, key);                                                          \
+    ostream << ";\n" << std::string(indent, '\t');                                                 \
+    ostream << "return data";                                                                      \
+    ostream << ";\n" << std::string(indent - 1, '\t');                                             \
+    ostream << "}()";
 
-void write(const std::string &str, std::ostream &of, [[maybe_unused]] size_t indent,
+// NOLINTEND(cppcoreguidelines-macro-usage)
+
+namespace {
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+void write(const std::string &str, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
-    of << "\"" << str << "\"";
+    ostream << "\"" << str << "\"";
 }
 
 class plain_string : public std::string {};
 
-void write(const plain_string &str, std::ostream &of, [[maybe_unused]] size_t indent,
+void write(const plain_string &str, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
-    of << str;
+    ostream << str;
 }
 
-void write(const bool &b, std::ostream &of, [[maybe_unused]] size_t indent,
+void write(const bool &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
-    if (b) {
-        of << "true";
+    if (value) {
+        ostream << "true";
     } else {
-        of << "false";
+        ostream << "false";
     }
 }
 
-void write(const float &f, std::ostream &of, [[maybe_unused]] size_t indent,
+void write(const float &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
-    of << std::setfill(' ') << std::setw(9) << f;
+    ostream << std::setfill(' ') << std::setw(9) << value;
 }
 
-void write(const int &i, std::ostream &of, [[maybe_unused]] size_t indent,
+void write(const int &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
-    int num = i;
+    int num = value;
     int width = 9;
-    if (i < 0) {
-        of << '-';
-        num = -i;
+    if (value < 0) {
+        ostream << '-';
+        num = -value;
         width -= 1;
     }
-    of << std::hex << std::setfill('0');
-    of << "0x" << std::setw(width) << num;
+    ostream << std::hex << std::setfill('0');
+    ostream << "0x" << std::setw(width) << num;
 }
 
-void write(const std::uint64_t &ui, std::ostream &of, [[maybe_unused]] size_t indent,
+void write(const std::uint64_t &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
-    of << std::hex << std::setfill('0');
-    of << "0x" << std::setw(8) << ui << "u";
+    ostream << std::hex << std::setfill('0');
+    ostream << "0x" << std::setw(8) << value << "u";
 }
 
-void write(const unsigned int &ui, std::ostream &of, [[maybe_unused]] size_t indent,
+void write(const unsigned int &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
-    of << std::hex << std::setfill('0');
-    of << "0x" << std::setw(8) << ui << "u";
+    ostream << std::hex << std::setfill('0');
+    ostream << "0x" << std::setw(8) << value << "u";
 }
 
-void write(const stbi_uc &uc, std::ostream &of, [[maybe_unused]] size_t indent,
+void write(const stbi_uc &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
-    of << std::hex << std::setfill('0');
-    of << "0x" << std::setw(2) << static_cast<short>(uc);
+    ostream << std::hex << std::setfill('0');
+    ostream << "0x" << std::setw(2) << static_cast<short>(value);
 }
 
-void write(const tinyobj::texture_type_t &e, std::ostream &of, [[maybe_unused]] size_t indent,
-           [[maybe_unused]] const std::string &key) {
-    of << std::hex << std::setfill('0');
-    of << "tinyobj::texture_type_t(0x" << std::setw(3) << static_cast<size_t>(e) << ")";
+void write(const tinyobj::texture_type_t &texture, std::ostream &ostream,
+           [[maybe_unused]] size_t indent, [[maybe_unused]] const std::string &key) {
+    ostream << std::hex << std::setfill('0');
+    ostream << "tinyobj::texture_type_t(0x" << std::setw(3) << static_cast<size_t>(texture) << ")";
 }
 
 template <typename T>
-void write(const std::vector<T> &vec, std::ostream &of, size_t indent, const std::string &key);
+void write(const std::vector<T> &vec, std::ostream &ostream, size_t indent, const std::string &key);
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
 template <typename T, size_t N>
-void write(const T (&arr)[N], std::ostream &of, size_t indent, const std::string &key);
+void write(const T (&arr)[N], std::ostream &ostream, size_t indent, const std::string &key);
+// NOLINTEND(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
 
 template <typename K, typename V>
-void write(const std::map<K, V> &map, std::ostream &of, size_t indent, const std::string &key);
+void write(const std::map<K, V> &map, std::ostream &ostream, size_t indent, const std::string &key);
 
-void write(const tinyobj::skin_weight_t &data, std::ostream &of, size_t indent,
+void write(const tinyobj::skin_weight_t &data, std::ostream &ostream, size_t indent,
            const std::string &key) {
     Decl("tinyobj::skin_weight_t");
     Member(vertex_id);
     Member_last(weightValues);
 }
 
-void write(const tinyobj::joint_and_weight_t &data, std::ostream &of, size_t indent,
+void write(const tinyobj::joint_and_weight_t &data, std::ostream &ostream, size_t indent,
            const std::string &key) {
     Decl("tinyobj::joint_and_weight_t");
     Member(joint_id);
     Member_last(weight);
 }
 
-void write(const ShaderData &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const ShaderData &data, std::ostream &ostream, size_t indent, const std::string &key) {
     Decl_c("ShaderData_c");
     Member(timestamp);
     Exp(data, plain_string(std::format("{}_data_spv", key)));
     Member_last(data_len);
 }
 
-void write(const TextureData &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const TextureData &data, std::ostream &ostream, size_t indent, const std::string &key) {
     Decl_c("TextureData_c");
     Member(timestamp);
     Member(width);
@@ -681,7 +618,8 @@ void write(const TextureData &data, std::ostream &of, size_t indent, const std::
     Member_last(pixels_len);
 }
 
-void write(const tinyobj::attrib_t &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const tinyobj::attrib_t &data, std::ostream &ostream, size_t indent,
+           const std::string &key) {
     Decl_noAggregat("tinyobj::attrib_t");
     Member_noAggregat(vertices);
     Member_noAggregat(vertex_weights);
@@ -692,7 +630,8 @@ void write(const tinyobj::attrib_t &data, std::ostream &of, size_t indent, const
     Member_last_noAggregat(skin_weights);
 }
 
-void write(const tinyobj::mesh_t &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const tinyobj::mesh_t &data, std::ostream &ostream, size_t indent,
+           const std::string &key) {
     Decl("tinyobj::mesh_t");
     Member(indices);
     Member(num_face_vertices);
@@ -701,7 +640,8 @@ void write(const tinyobj::mesh_t &data, std::ostream &of, size_t indent, const s
     Member_last(tags);
 }
 
-void write(const tinyobj::tag_t &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const tinyobj::tag_t &data, std::ostream &ostream, size_t indent,
+           const std::string &key) {
     Decl("tinyobj::tag_t");
     Member(name);
     Member(intValues);
@@ -709,25 +649,29 @@ void write(const tinyobj::tag_t &data, std::ostream &of, size_t indent, const st
     Member_last(stringValues);
 }
 
-void write(const tinyobj::lines_t &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const tinyobj::lines_t &data, std::ostream &ostream, size_t indent,
+           const std::string &key) {
     Decl("tinyobj::lines_t");
     Member(indices);
     Member_last(num_line_vertices);
 }
 
-void write(const tinyobj::points_t &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const tinyobj::points_t &data, std::ostream &ostream, size_t indent,
+           const std::string &key) {
     Decl("tinyobj::points_t");
     Member_last(indices);
 }
 
-void write(const tinyobj::index_t &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const tinyobj::index_t &data, std::ostream &ostream, size_t indent,
+           const std::string &key) {
     Decl("tinyobj::index_t");
     Member(vertex_index);
     Member(normal_index);
     Member_last(texcoord_index);
 }
 
-void write(const tinyobj::shape_t &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const tinyobj::shape_t &data, std::ostream &ostream, size_t indent,
+           const std::string &key) {
     Decl("tinyobj::shape_t");
     Member(name);
     Member(mesh);
@@ -735,7 +679,7 @@ void write(const tinyobj::shape_t &data, std::ostream &of, size_t indent, const 
     Member_last(points);
 }
 
-void write(const tinyobj::texture_option_t &data, std::ostream &of, size_t indent,
+void write(const tinyobj::texture_option_t &data, std::ostream &ostream, size_t indent,
            const std::string &key) {
     Decl("tinyobj::texture_option_t");
     Member(type);
@@ -754,7 +698,7 @@ void write(const tinyobj::texture_option_t &data, std::ostream &of, size_t inden
     Member_last(colorspace);
 }
 
-void write(const tinyobj::material_t &data, std::ostream &of, size_t indent,
+void write(const tinyobj::material_t &data, std::ostream &ostream, size_t indent,
            const std::string &key) {
     Decl("tinyobj::material_t");
     Member(name);
@@ -805,7 +749,7 @@ void write(const tinyobj::material_t &data, std::ostream &of, size_t indent,
     Member_last(unknown_parameter);
 }
 
-void write(const MeshData &data, std::ostream &of, size_t indent, const std::string &key) {
+void write(const MeshData &data, std::ostream &ostream, size_t indent, const std::string &key) {
     Decl("MeshData");
     Member(timestamp);
     Member(attrib);
@@ -814,29 +758,18 @@ void write(const MeshData &data, std::ostream &of, size_t indent, const std::str
 }
 
 template <typename T>
-void write(const std::vector<T> &vec, std::ostream &of, size_t indent, const std::string &key) {
-    int perline;
-    if constexpr (std::same_as<T, unsigned int>) {
-        perline = 8;
-    } else if constexpr (std::same_as<T, int>) {
+void write(const std::vector<T> &vec, std::ostream &ostream, size_t indent,
+           const std::string &key) {
+    int perline = 1;
+    if constexpr (std::same_as<T, unsigned int> || std::same_as<T, int> || std::same_as<T, float>) {
         perline = 8;
     } else if constexpr (std::same_as<T, stbi_uc>) {
         perline = 16;
-    } else if constexpr (std::same_as<T, float>) {
-        perline = 8;
-    } else if constexpr (std::same_as<T, std::string>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::skin_weight_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::joint_and_weight_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::index_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::tag_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::shape_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::material_t>) {
+    } else if constexpr (std::same_as<T, std::string> || std::same_as<T, tinyobj::skin_weight_t> ||
+                         std::same_as<T, tinyobj::joint_and_weight_t> ||
+                         std::same_as<T, tinyobj::index_t> || std::same_as<T, tinyobj::tag_t> ||
+                         std::same_as<T, tinyobj::shape_t> ||
+                         std::same_as<T, tinyobj::material_t>) {
         perline = 1;
     } else {
         static_assert(false);
@@ -845,227 +778,227 @@ void write(const std::vector<T> &vec, std::ostream &of, size_t indent, const std
     int newline = 0;
 
     if (vec.empty()) {
-        of << "{}";
+        ostream << "{}";
         return;
     }
 
-    of << "{\n";
-    for (size_t i = 0; i < vec.size(); i++) {
+    ostream << "{\n";
+    for (const auto &element : vec) {
         if (newline == 0) {
-            of << std::string(indent, '\t');
+            ostream << std::string(indent, '\t');
         }
-        write(vec[i], of, indent + 1, key);
-        of << ", ";
+        write(element, ostream, indent + 1, key);
+        ostream << ", ";
         newline = (newline + 1) % perline;
         if (newline == 0) {
-            of << "\n";
+            ostream << "\n";
         }
     }
-    of << "\n";
-    of << std::string(indent - 1, '\t') << "}";
+    ostream << "\n";
+    ostream << std::string(indent - 1, '\t') << "}";
 }
 
 template <typename K, typename V>
-void write(const std::map<K, V> &map, std::ostream &of, size_t indent, const std::string &key) {
+void write(const std::map<K, V> &map, std::ostream &ostream, size_t indent,
+           const std::string &key) {
     if (map.empty()) {
-        of << "{}";
+        ostream << "{}";
         return;
     }
-    of << "{\n";
+    ostream << "{\n";
     for (const auto &[k, v] : map) {
-        of << std::string(indent, '\t');
-        of << "{";
-        write(k, of, indent + 1, key);
-        of << ", ";
-        write(v, of, indent + 1, key);
-        of << ", ";
-        of << "\n";
+        ostream << std::string(indent, '\t');
+        ostream << "{";
+        write(k, ostream, indent + 1, key);
+        ostream << ", ";
+        write(v, ostream, indent + 1, key);
+        ostream << ", ";
+        ostream << "\n";
     }
-    of << "\n";
-    of << std::string(indent - 1, '\t') << "}";
+    ostream << "\n";
+    ostream << std::string(indent - 1, '\t') << "}";
 }
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
 template <typename T, size_t N>
-void write(const T (&arr)[N], std::ostream &of, size_t indent, const std::string &key) {
-    int perline;
-    if constexpr (std::same_as<T, unsigned int>) {
-        perline = 8;
-    } else if constexpr (std::same_as<T, int>) {
+void write(const T (&arr)[N], std::ostream &ostream, size_t indent, const std::string &key) {
+    int perline = 1;
+    if constexpr (std::same_as<T, unsigned int> || std::same_as<T, int> || std::same_as<T, int> ||
+                  std::same_as<T, float>) {
         perline = 8;
     } else if constexpr (std::same_as<T, stbi_uc>) {
         perline = 16;
-    } else if constexpr (std::same_as<T, float>) {
-        perline = 8;
-    } else if constexpr (std::same_as<T, std::string>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::skin_weight_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::joint_and_weight_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::index_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::tag_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::shape_t>) {
-        perline = 1;
-    } else if constexpr (std::same_as<T, tinyobj::material_t>) {
+    } else if constexpr (std::same_as<T, std::string> || std::same_as<T, tinyobj::skin_weight_t> ||
+                         std::same_as<T, tinyobj::joint_and_weight_t> ||
+                         std::same_as<T, tinyobj::index_t> || std::same_as<T, tinyobj::tag_t> ||
+                         std::same_as<T, tinyobj::shape_t> ||
+                         std::same_as<T, tinyobj::material_t>) {
         perline = 1;
     } else {
         static_assert(false);
     }
 
     if constexpr (N == 0) {
-        of << "{}";
+        ostream << "{}";
         return;
     }
 
     int newline = 0;
 
-    of << "{\n";
+    ostream << "{\n";
     for (size_t i = 0; i < N; ++i) {
         if (newline == 0) {
-            of << std::string(indent, '\t');
+            ostream << std::string(indent, '\t');
         }
-        write(arr[i], of, indent + 1, key);
+        write(arr[i], ostream, indent + 1, key);
         if (i != N - 1)
-            of << ", ";
+            ostream << ", ";
         newline = (newline + 1) % perline;
         if (newline == 0 && i != N - 1) {
-            of << "\n";
+            ostream << "\n";
         }
     }
-    of << "\n";
-    of << std::string(indent - 1, '\t') << "}";
+    ostream << "\n";
+    ostream << std::string(indent - 1, '\t') << "}";
 }
+// NOLINTEND(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
 
 void writeData(const std::string &key, ResourcePreprocessor::resource_ptr &resource,
-               const std::vector<std::filesystem::path> artefacts) {
+               const std::vector<std::filesystem::path> &artefacts) {
 
-    std::vector<std::stringstream> s;
-    s.resize(artefacts.size());
+    std::vector<std::stringstream> streams;
+    streams.resize(artefacts.size());
 
     Visitor v{[&](const std::unique_ptr<ShaderData> &shaderData) -> void {
-                  s[0] << "#include \"ShaderData.h\"\n"
-                       << "#include <stdint.h>\n\n";
+                  streams.at(0) << "#include \"ShaderData.h\"\n"
+                                << "#include <stdint.h>\n\n";
 
-                  s[0] << "const uint32_t " << key << "_data_spv[] = ";
-                  write(shaderData->data, s[0], 1, key);
-                  s[0] << ";\n\n";
+                  streams.at(0) << "const uint32_t " << key << "_data_spv[] = ";
+                  write(shaderData->data, streams.at(0), 1, key);
+                  streams.at(0) << ";\n\n";
 
-                  s[0] << "ShaderData_c " << key << "_data = ";
-                  write(*shaderData, s[0], 1, key);
-                  s[0] << ";";
+                  streams.at(0) << "ShaderData_c " << key << "_data = ";
+                  write(*shaderData, streams.at(0), 1, key);
+                  streams.at(0) << ";";
               },
               [&](const std::unique_ptr<TextureData> &textureData) -> void {
-                  s[0] << "#include \"TextureData.h\"\n";
-                  s[0] << "#include <stb_image.h>\n\n";
+                  streams.at(0) << "#include \"TextureData.h\"\n";
+                  streams.at(0) << "#include <stb_image.h>\n\n";
 
-                  s[0] << "const stbi_uc " << key << "_data_pixels[] = ";
-                  write(textureData->pixels, s[0], 1, key);
-                  s[0] << ";\n\n";
+                  streams.at(0) << "const stbi_uc " << key << "_data_pixels[] = ";
+                  write(textureData->pixels, streams.at(0), 1, key);
+                  streams.at(0) << ";\n\n";
 
-                  s[0] << "TextureData_c " << key << "_data = ";
-                  write(*textureData, s[0], 1, key);
-                  s[0] << ";";
+                  streams.at(0) << "TextureData_c " << key << "_data = ";
+                  write(*textureData, streams.at(0), 1, key);
+                  streams.at(0) << ";";
               },
               [&]([[maybe_unused]] const std::unique_ptr<MeshData> &meshData) -> void {
-                  s[0] << "#include \"MeshData.hpp\"\n\nMeshData " << key << "_data = ";
-                  write(*meshData, s[0], 1, key);
-                  s[0] << ";";
+                  streams.at(0) << "#include \"MeshData.hpp\"\n\nMeshData " << key << "_data = ";
+                  write(*meshData, streams.at(0), 1, key);
+                  streams.at(0) << ";";
               }};
 
     std::visit(v, resource);
 
-    for (size_t i = 0; i < artefacts.size(); i++) {
+    for (const auto &[artefact, stream] : std::ranges::zip_view(artefacts, streams)) {
         auto start = std::chrono::high_resolution_clock::now();
-        std::cout << "Writing " << artefacts[i] << " (";
-        std::filesystem::create_directories(artefacts[i].parent_path());
-        std::ofstream of(artefacts[i]);
-        of << s[i].str();
-        of.close();
+        std::cout << "Writing " << artefact << " (";
+        std::filesystem::create_directories(artefact.parent_path());
+        std::ofstream ostream(artefact);
+        ostream << stream.str();
+        ostream.close();
         std::println("{})", std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::high_resolution_clock::now() - start));
     }
 }
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-void ResourcePreprocessor::preprocess() {
-    if (!std::filesystem::exists(outputDir)) {
-        std::filesystem::create_directories(outputDir);
+struct Keys {
+    std::vector<std::string> shaders;
+    std::vector<std::string> textures;
+    std::vector<std::string> meshes;
+};
+
+void processFiles(const std::filesystem::directory_entry &entry,
+                  ResourcePreprocessor &resourcePreprocessor, Keys &keys) {
+    if (!entry.is_regular_file())
+        return;
+
+    const auto &path = entry.path();
+    std::vector<std::filesystem::path> artefacts;
+    const auto key = resourcePreprocessor.getKey(path);
+    const auto extension = path.extension().string().substr(1);
+    const auto basePath = (resourcePreprocessor.getOutputDir() /
+                           std::filesystem::relative(path, resourcePreprocessor.getInputDir()))
+                              .remove_filename();
+    const auto stem = path.stem();
+
+    if (std::ranges::find(ResourcePreprocessor::shaderExtensions, extension) !=
+        ResourcePreprocessor::shaderExtensions.end()) {
+        artefacts.push_back(basePath / (stem.string() + "_" + extension + ".c"));
+        keys.shaders.push_back(key);
+    } else if (std::ranges::find(ResourcePreprocessor::textureExtensions, extension) !=
+               ResourcePreprocessor::textureExtensions.end()) {
+        artefacts.push_back(basePath / (stem.string() + "_" + extension + ".c"));
+        keys.textures.push_back(key);
+    } else if (std::ranges::find(ResourcePreprocessor::meshExtensions, extension) !=
+               ResourcePreprocessor::meshExtensions.end()) {
+        artefacts.push_back(basePath / (stem.string() + "_" + extension + ".cpp"));
+        keys.meshes.push_back(key);
+    } else {
+        return;
     }
 
-    std::vector<std::string> shader_keys;
-    std::vector<std::string> texture_keys;
-    std::vector<std::string> mesh_keys;
-
-    for (const auto &entry : std::filesystem::recursive_directory_iterator(inputDir)) {
-        if (!entry.is_regular_file())
-            continue;
-
-        const auto &path = entry.path();
-        const auto key = getKey(path);
-        const auto extension = path.extension().string().substr(1);
-        auto basePath = outputDir / std::filesystem::relative(path, inputDir);
-        basePath.remove_filename();
-        const auto stem = path.stem();
-
-        std::vector<std::filesystem::path> artefacts;
-
-        if (std::ranges::find(shaderExtensions, extension) != shaderExtensions.end()) {
-            artefacts.push_back(basePath / (stem.string() + "_" + extension + ".c"));
-            shader_keys.push_back(key);
-        } else if (std::ranges::find(textureExtensions, extension) != textureExtensions.end()) {
-            artefacts.push_back(basePath / (stem.string() + "_" + extension + ".c"));
-            texture_keys.push_back(key);
-        } else if (std::ranges::find(meshExtensions, extension) != meshExtensions.end()) {
-            artefacts.push_back(basePath / (stem.string() + "_" + extension + ".cpp"));
-            mesh_keys.push_back(key);
-        } else
-            continue;
-
-        std::uint64_t dest_mtime = 0;
-        for (const auto &artefact : artefacts) {
-            dest_mtime = std::max(dest_mtime, get_mtime_ms(artefact.string()));
-        }
-
-        std::uint64_t src_mtime = get_mtime_ms(path.string());
-
-        if (src_mtime < dest_mtime) {
-            continue;
-        }
-
-        std::optional<resource_ptr> resource;
-        if (std::ranges::find(shaderExtensions, extension) != shaderExtensions.end()) {
-            resource = parseShader(path, key);
-        } else if (std::ranges::find(textureExtensions, extension) != textureExtensions.end()) {
-            resource = parseTexture(path, key);
-        } else if (std::ranges::find(meshExtensions, extension) != meshExtensions.end()) {
-            resource = parseMesh(path, key);
-        }
-
-        if (!resource) {
-            std::cout << "failed to parse: " << path << "\n";
-            return;
-        }
-
-        Visitor v{[&src_mtime](const auto &ptr) -> void { setTimestamp(*ptr, src_mtime); }};
-        std::visit(v, resource.value());
-
-        writeData(key, resource.value(), artefacts);
+    std::uint64_t dest_mtime = 0;
+    for (const auto &artefact : artefacts) {
+        dest_mtime = std::max(dest_mtime, get_mtime_ms(artefact.string()));
     }
+
+    std::uint64_t src_mtime = get_mtime_ms(path.string());
+
+    if (src_mtime < dest_mtime) {
+        return;
+    }
+
+    std::optional<ResourcePreprocessor::resource_ptr> resource;
+    if (std::ranges::find(ResourcePreprocessor::shaderExtensions, extension) !=
+        ResourcePreprocessor::shaderExtensions.end()) {
+        resource = parseShader(path, key);
+    } else if (std::ranges::find(ResourcePreprocessor::textureExtensions, extension) !=
+               ResourcePreprocessor::textureExtensions.end()) {
+        resource = parseTexture(path, key);
+    } else if (std::ranges::find(ResourcePreprocessor::meshExtensions, extension) !=
+               ResourcePreprocessor::meshExtensions.end()) {
+        resource = parseMesh(path, key);
+    }
+
+    if (!resource) {
+        std::cout << "failed to parse: " << path << "\n";
+        return;
+    }
+
+    Visitor v{[&src_mtime](const auto &ptr) -> void { setTimestamp(*ptr, src_mtime); }};
+    std::visit(v, resource.value());
+
+    writeData(key, resource.value(), artefacts);
+};
+
+void writeResources(Keys &keys, ResourcePreprocessor &resourcePreprocessor) {
 
     std::stringstream str;
 
-    std::filesystem::path resourceCpp = outputDir / "Resource.cpp";
+    const std::filesystem::path resourceCpp = resourcePreprocessor.getOutputDir() / "Resource.cpp";
 
     str << "#include \"Resource.hpp\"\n\n";
     str << "extern \"C\" {\n";
-    for (const auto &key : shader_keys) {
+    for (const auto &key : keys.shaders) {
         str << "\textern ShaderData_c " << key << "_data;\n";
     }
-    for (const auto &key : texture_keys) {
+    for (const auto &key : keys.textures) {
         str << "\textern TextureData_c " << key << "_data;\n";
     }
-    for (const auto &key : mesh_keys) {
+    for (const auto &key : keys.meshes) {
         str << "\textern MeshData " << key << "_data;\n";
     }
     str << "}\n";
@@ -1073,13 +1006,13 @@ void ResourcePreprocessor::preprocess() {
     str << "std::unordered_map<std::string, std::variant<ShaderData_c *, "
            "TextureData_c *, "
            "MeshData *>> preprocessor_data = {\n";
-    for (const auto &key : shader_keys) {
+    for (const auto &key : keys.shaders) {
         str << "\t{\"" << key << "\", &" << key << "_data},\n";
     }
-    for (const auto &key : texture_keys) {
+    for (const auto &key : keys.textures) {
         str << "\t{\"" << key << "\", &" << key << "_data},\n";
     }
-    for (const auto &key : mesh_keys) {
+    for (const auto &key : keys.meshes) {
         str << "\t{\"" << key << "\", &" << key << "_data},\n";
     }
     str << "};\n\n";
@@ -1091,10 +1024,26 @@ void ResourcePreprocessor::preprocess() {
     if (str.str() != readFile(resourceCpp)) {
         auto start = std::chrono::high_resolution_clock::now();
         std::cout << "Writing " << resourceCpp << " (";
-        std::ofstream of(resourceCpp);
-        of << str.str();
-        of.close();
+        std::ofstream ostream(resourceCpp);
+        ostream << str.str();
+        ostream.close();
         std::println("{})", std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::high_resolution_clock::now() - start));
     }
+}
+
+} // namespace
+
+void ResourcePreprocessor::preprocess() {
+    if (!std::filesystem::exists(outputDir)) {
+        std::filesystem::create_directories(outputDir);
+    }
+
+    Keys keys;
+
+    for (const auto &entry : std::filesystem::recursive_directory_iterator(inputDir)) {
+        processFiles(entry, *this, keys);
+    }
+
+    writeResources(keys, *this);
 }

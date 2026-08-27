@@ -1,14 +1,14 @@
 #pragma once
 
-#include <stb_image.h>
-
-#include <cstdint>
-
 #include "MeshData.hpp"
 #include "ShaderData.h"
 #include "TextureData.h"
 
+#include <stb_image.h>
+
 #include <concepts>
+#include <cstdint>
+#include <string>
 #include <unordered_map>
 #include <variant>
 
@@ -35,12 +35,14 @@ struct PreprocessorDataHolder {
 };
 
 template <typename T>
-concept hasTimestamp = requires(T t) {
-    { t.timestamp } -> std::same_as<uint64_t &>;
+concept hasTimestamp = requires(T value) {
+    { value.timestamp } -> std::same_as<uint64_t &>;
 };
 
-template <hasTimestamp T> void setTimestamp(T &t, const uint64_t &timestamp) {
-    t.timestamp = timestamp;
+template <hasTimestamp T> void setTimestamp(T &value, const uint64_t &timestamp) {
+    value.timestamp = timestamp;
 }
 
-template <hasTimestamp T> auto getTimestamp(const T &t) -> const uint64_t & { return t.timestamp; }
+template <hasTimestamp T> auto getTimestamp(const T &value) -> const uint64_t & {
+    return value.timestamp;
+}
