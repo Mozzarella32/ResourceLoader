@@ -23,7 +23,7 @@ release: clean
 	cmake -S . -B $(BUILD_DIR) $(GENERATOR_FLAG) -DCMAKE_BUILD_TYPE=Release
 
 build:
-	cmake --build $(BUILD_DIR) -j$(NUM_THREADS)
+	cmake --build $(BUILD_DIR) --target ResourceLoader -j$(NUM_THREADS)
 
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET_PATH) $(LOG_PATH) $(RESOURCE_PATH)
