@@ -391,9 +391,9 @@ void ResourcePreprocessor::work() {
     }
 }
 
-void ResourcePreprocessor::startUpdater(std::chrono::milliseconds refreshTime) {
+void ResourcePreprocessor::startUpdater(std::chrono::milliseconds suppliedRefreshTime) {
     assert(!running);
-    this->refreshTime = refreshTime;
+    refreshTime = suppliedRefreshTime;
 
     auto &preprocessorData = PreprocessorDataHolder::getData();
 
