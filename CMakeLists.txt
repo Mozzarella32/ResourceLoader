@@ -86,24 +86,33 @@ file(GLOB_RECURSE SRCS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
-add_library(${PROJECT_NAME} STATIC ${SRCS})
+add_library(ResourceLoader STATIC ${SRCS})
+add_library(ResourceLoader::Library ALIAS ResourceLoader)
 
-target_include_directories(${PROJECT_NAME} PUBLIC
+target_include_directories(ResourceLoader PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/submodules/Visitor"
 )
 
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
-    "${TINY_OBJ_LOADER_INCLUDE_DIR}"
-    "${STB_INCLUDE_DIR}"
+target_link_libraries(ResourceLoader
+    PRIVATE
+       glslang::glslang
+       glslang::SPIRV
+       glslang::glslang-default-resource-limits
 )
 
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
+target_include_directories(ResourceLoader SYSTEM PRIVATE
+    "${TINY_OBJ_LOADER_INCLUDE_DIR}"
+    "${STB_INCLUDE_DIR}"
     "${GLSLANG_INCLUDE_DIR}"
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    glslang::glslang
-    glslang::SPIRV
-    glslang::glslang-default-resource-limits
+add_library(ResourceLoaderHeaders INTERFACE)
+add_library(ResourceLoader::Headers ALIAS ResourceLoaderHeaders)
+
+target_include_directories(ResourceLoaderHeaders
+    INTERFACE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/submodules/Visitor"
 )
+
