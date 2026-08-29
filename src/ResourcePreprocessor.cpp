@@ -1,8 +1,6 @@
 #include "ResourcePreprocessor.hpp"
 #include "MeshData.hpp"
 #include "Resource.hpp"
-#include "ShaderData.h"
-#include "TextureData.h"
 
 #include <Visitor.hpp>
 
@@ -395,28 +393,34 @@ void ResourcePreprocessor::startUpdater(std::chrono::milliseconds suppliedRefres
     assert(!running);
     refreshTime = suppliedRefreshTime;
 
-    auto &preprocessorData = PreprocessorDataHolder::getData();
+    const auto &preprocessorData = PreprocessorDataHolder::getData();
 
-    for (const auto &[key, value] : preprocessorData) {
-        Visitor v{[](const ShaderData_c *shader_data) -> resource_ptr {
-                      return std::make_unique<ShaderData>(
-                          shader_data->timestamp,
-                          std::vector{std::from_range,
-                                      std::span(shader_data->data, shader_data->data_len)},
-                          shader_data->data_len);
-                  },
-                  [](const TextureData_c *texture_data) -> resource_ptr {
-                      return std::make_unique<TextureData>(
-                          texture_data->timestamp, texture_data->width, texture_data->height,
-                          std::vector{std::from_range,
-                                      std::span(texture_data->pixels, texture_data->pixels_len)});
-                  },
-                  [](const MeshData *mesh_data) -> resource_ptr {
-                      return std::make_unique<MeshData>(mesh_data->timestamp, mesh_data->attrib,
-                                                        mesh_data->shapes, mesh_data->materials);
-                  }};
-        data[key] = std::visit(v, value);
-    }
+    data.insert_range(
+        preprocessorData.shaders | std::views::transform([](const auto &tuple) {
+            const auto &[key, data] = tuple;
+            return std::make_tuple(
+                std::string{key},
+                std::make_unique<ShaderData>(
+                    data->timestamp,
+                    std::vector{std::from_range, std::span(data->data, data->data_len)},
+                    data->data_len));
+        }));
+    data.insert_range(
+        preprocessorData.textures | std::views::transform([](const auto &tuple) {
+            const auto &[key, data] = tuple;
+            return std::make_tuple(
+                std::string{key},
+                std::make_unique<TextureData>(
+                    data->timestamp, data->width, data->height,
+                    std::vector{std::from_range, std::span(data->pixels, data->pixels_len)}));
+        }));
+    data.insert_range(preprocessorData.meshes | std::views::transform([](const auto &tuple) {
+                          const auto &[key, data] = tuple;
+                          return std::make_tuple(
+                              std::string{key},
+                              std::make_unique<MeshData>(data->timestamp, data->attrib,
+                                                         data->shapes, data->materials));
+                      }));
 
     running = true;
     terminate = false;
@@ -555,13 +559,13 @@ void write(const int &value, std::ostream &ostream, [[maybe_unused]] size_t inde
 void write(const std::uint64_t &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
     ostream << std::hex << std::setfill('0');
-    ostream << "0x" << std::setw(8) << value << "u";
+    ostream << "0x" << std::setw(8) << value << "U";
 }
 
 void write(const unsigned int &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
            [[maybe_unused]] const std::string &key) {
     ostream << std::hex << std::setfill('0');
-    ostream << "0x" << std::setw(8) << value << "u";
+    ostream << "0x" << std::setw(8) << value << "U";
 }
 
 void write(const stbi_uc &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
@@ -876,7 +880,7 @@ void writeData(const std::string &key, ResourcePreprocessor::resource_ptr &resou
                   write(shaderData->data, streams.at(0), 1, key);
                   streams.at(0) << ";\n\n";
 
-                  streams.at(0) << "ShaderData_c " << key << "_data = ";
+                  streams.at(0) << "const ShaderData_c " << key << "_data = ";
                   write(*shaderData, streams.at(0), 1, key);
                   streams.at(0) << ";";
               },
@@ -888,12 +892,13 @@ void writeData(const std::string &key, ResourcePreprocessor::resource_ptr &resou
                   write(textureData->pixels, streams.at(0), 1, key);
                   streams.at(0) << ";\n\n";
 
-                  streams.at(0) << "TextureData_c " << key << "_data = ";
+                  streams.at(0) << "const TextureData_c " << key << "_data = ";
                   write(*textureData, streams.at(0), 1, key);
                   streams.at(0) << ";";
               },
               [&]([[maybe_unused]] const std::unique_ptr<MeshData> &meshData) -> void {
-                  streams.at(0) << "#include \"MeshData.hpp\"\n\nMeshData " << key << "_data = ";
+                  streams.at(0) << "#include \"MeshData.hpp\"\n\nconst MeshData " << key
+                                << "_data = ";
                   write(*meshData, streams.at(0), 1, key);
                   streams.at(0) << ";";
               }};
@@ -985,46 +990,65 @@ void processFiles(const std::filesystem::directory_entry &entry,
 
 void writeResources(Keys &keys, ResourcePreprocessor &resourcePreprocessor) {
 
-    std::stringstream str;
+    std::stringstream buff;
 
     const std::filesystem::path resourceCpp = resourcePreprocessor.getOutputDir() / "Resource.cpp";
 
-    str << "#include \"Resource.hpp\"\n\n";
-    str << "extern \"C\" {\n";
+    std::println(buff, "#include \"Resource.hpp\"");
+    std::println(buff, "#include \"ShaderData.h\"");
+    std::println(buff, "#include \"TextureData.h\"");
+    std::println(buff, "#include \"MeshData.hpp\"");
+    std::println(buff);
+    std::println(buff, "#include <array>");
+    std::println(buff, "#include <tuple>");
+    std::println(buff, "#include <string_view>");
+    std::println(buff, "#include <variant>");
+    std::println(buff);
+    std::println(buff, "extern \"C\" {{");
     for (const auto &key : keys.shaders) {
-        str << "\textern ShaderData_c " << key << "_data;\n";
+        std::println(buff, "\textern ShaderData_c {}_data;", key);
     }
     for (const auto &key : keys.textures) {
-        str << "\textern TextureData_c " << key << "_data;\n";
+        std::println(buff, "\textern TextureData_c {}_data;", key);
     }
     for (const auto &key : keys.meshes) {
-        str << "\textern MeshData " << key << "_data;\n";
+        std::println(buff, "\textern MeshData {}_data;", key);
     }
-    str << "}\n";
+    std::println(buff, "}}");
+    std::println(buff, "namespace {{");
 
-    str << "std::unordered_map<std::string, std::variant<ShaderData_c *, "
-           "TextureData_c *, "
-           "MeshData *>> preprocessor_data = {\n";
-    for (const auto &key : keys.shaders) {
-        str << "\t{\"" << key << "\", &" << key << "_data},\n";
-    }
-    for (const auto &key : keys.textures) {
-        str << "\t{\"" << key << "\", &" << key << "_data},\n";
-    }
-    for (const auto &key : keys.meshes) {
-        str << "\t{\"" << key << "\", &" << key << "_data},\n";
-    }
-    str << "};\n\n";
+    auto writeArray = [&](std::string_view name, const std::vector<std::string> &keys,
+                          std::string_view dataType) {
+        if (keys.empty()) {
+            std::println(buff, "const std::array<std::tuple<std::string_view, {}*>, 0> {} = {{}};",
+                         dataType, name);
+            return;
+        }
+        std::println(buff, "const auto {} = std::to_array<std::tuple<std::string_view, {}*>>({{\n",
+                     name, dataType);
+        for (const auto &key : keys) {
+            std::println(buff, "\t{{\"{}\", &{}_data}},", key, key);
+        }
 
-    str << "auto init_data = [](){ "
-           "PreprocessorDataHolder::setData(preprocessor_data); return "
-           "1; }();\n";
+        std::println(buff, "}});");
+    };
 
-    if (str.str() != readFile(resourceCpp)) {
+    writeArray("shaders", keys.shaders, "ShaderData_c");
+    writeArray("textures", keys.textures, "TextureData_c");
+    writeArray("meshes", keys.meshes, "MeshData");
+
+    buff << "[[maybe_unused]] const auto init_data = []() noexcept { "
+            "PreprocessorDataHolder::setData({.shaders=shaders, .textures=textures, "
+            ".meshes=meshes}); return "
+            "std::monostate{}; }();\n";
+
+    std::println(buff, "}}");
+
+    if (buff.str() != readFile(resourceCpp)) {
         auto start = std::chrono::high_resolution_clock::now();
         std::cout << "Writing " << resourceCpp << " (";
         std::ofstream ostream(resourceCpp);
-        ostream << str.str();
+        ostream << buff.str();
         ostream.close();
         std::println("{})", std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::high_resolution_clock::now() - start));

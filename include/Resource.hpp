@@ -8,13 +8,21 @@
 
 #include <concepts>
 #include <cstdint>
-#include <string>
-#include <unordered_map>
-#include <variant>
+#include <optional>
+#include <span>
+#include <stdexcept>
+#include <string_view>
+#include <tuple>
 
 struct PreprocessorDataHolder {
   private:
-    std::unordered_map<std::string, std::variant<ShaderData_c *, TextureData_c *, MeshData *>> data;
+    struct Data {
+        std::span<const std::tuple<std::string_view, ShaderData_c *>> shaders;
+        std::span<const std::tuple<std::string_view, TextureData_c *>> textures;
+        std::span<const std::tuple<std::string_view, MeshData *>> meshes;
+    };
+    std::optional<Data> data;
+
     PreprocessorDataHolder() = default;
     static auto Instance() -> PreprocessorDataHolder & {
         static PreprocessorDataHolder instance;
@@ -22,16 +30,14 @@ struct PreprocessorDataHolder {
     }
 
   public:
-    static auto getData()
-        -> std::unordered_map<std::string,
-                              std::variant<ShaderData_c *, TextureData_c *, MeshData *>> & {
-        return Instance().data;
+    static auto getData() -> const Data & {
+        if (auto &dataOpt = Instance().data; dataOpt) {
+            return dataOpt.value();
+        }
+        throw std::logic_error(
+            "ResourceLoader: Data has not been set, check if Resource.cpp was compiled");
     }
-    static void setData(
-        const std::unordered_map<std::string,
-                                 std::variant<ShaderData_c *, TextureData_c *, MeshData *>> &data) {
-        Instance().data = data;
-    }
+    static void setData(const Data &data) noexcept { Instance().data = data; }
 };
 
 template <typename T>
