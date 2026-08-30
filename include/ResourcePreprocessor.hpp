@@ -74,14 +74,6 @@ class ResourcePreprocessor {
     using resource_ptr = std::variant<std::unique_ptr<ShaderData>, std::unique_ptr<TextureData>,
                                       std::unique_ptr<MeshData>>;
 
-    static const constexpr std::array shaderExtensions = {
-        "frag", "vert", "geom", "comp", "tesc", "tese", "spv",
-    };
-
-    static const constexpr std::array textureExtensions = {"png", "jpg"};
-
-    static const constexpr std::array meshExtensions = {"obj"};
-
   private:
     std::unordered_map<std::string, resource_ptr> data;
 

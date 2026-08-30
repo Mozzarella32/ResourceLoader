@@ -1,6 +1,7 @@
 #include "ResourcePreprocessor.hpp"
 #include "MeshData.hpp"
 #include "Resource.hpp"
+#include "Serialiser.hpp"
 
 #include <Visitor.hpp>
 
@@ -13,16 +14,14 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <concepts>
+
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <functional>
-#include <iomanip>
 #include <iostream>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -318,6 +317,14 @@ auto parseMesh(const std::filesystem::path &path, const std::string &name)
 }
 } // namespace
 
+const constexpr std::array shaderExtensions = {
+    "frag", "vert", "geom", "comp", "tesc", "tese", "spv",
+};
+
+const constexpr std::array textureExtensions = {"png", "jpg"};
+
+const constexpr std::array meshExtensions = {"obj"};
+
 void ResourcePreprocessor::work() {
 
     if (!std::filesystem::exists(outputDir)) {
@@ -450,438 +457,26 @@ ResourcePreprocessor::~ResourcePreprocessor() {
     }
 }
 
-// NOLINTBEGIN(cppcoreguidelines-macro-usage)
-#define Decl(name)                                                                                 \
-    ostream << (name) << " {";                                                                     \
-    ostream << "\n" << std::string(indent, '\t');
-
-#define Decl_c(name)                                                                               \
-    ostream << " {";                                                                               \
-    ostream << "\n" << std::string(indent, '\t');
-
-#define Decl_noAggregat(name)                                                                      \
-    ostream << " []() {";                                                                          \
-    ostream << "\n" << std::string(indent, '\t');                                                  \
-    ostream << (name) << " data;";                                                                 \
-    ostream << "\n" << std::string(indent, '\t');
-
-#define Member(mem)                                                                                \
-    ostream << "." << #mem << " = ";                                                               \
-    write(data.mem, ostream, indent + 1, key);                                                     \
-    ostream << ",\n" << std::string(indent, '\t');
-
-#define Member_noAggregat(mem)                                                                     \
-    ostream << "data." << #mem << " = ";                                                           \
-    write(data.mem, ostream, indent + 1, key);                                                     \
-    ostream << ";\n" << std::string(indent, '\t');
-
-#define Exp(mem, exp)                                                                              \
-    ostream << "." << #mem << " = ";                                                               \
-    write(exp, ostream, indent + 1, key);                                                          \
-    ostream << ",\n" << std::string(indent, '\t');
-
-#define Exp_noAggregat(mem, exp)                                                                   \
-    ostream << "data." << #mem << " = ";                                                           \
-    write(exp, ostream, indent + 1, key);                                                          \
-    ostream << ";\n" << std::string(indent, '\t');
-
-#define Member_last(mem)                                                                           \
-    ostream << "." << #mem << " = ";                                                               \
-    write(data.mem, ostream, indent + 1, key);                                                     \
-    ostream << ",\n" << std::string(indent - 1, '\t');                                             \
-    ostream << "}";
-
-#define Member_last_noAggregat(mem)                                                                \
-    ostream << "data." << #mem << " = ";                                                           \
-    write(data.mem, ostream, indent + 1, key);                                                     \
-    ostream << ";\n" << std::string(indent, '\t');                                                 \
-    ostream << "return data";                                                                      \
-    ostream << ";\n" << std::string(indent - 1, '\t');                                             \
-    ostream << "}()";
-
-#define Exp_last(mem, exp)                                                                         \
-    ostream << "." << #mem << " = ";                                                               \
-    write(exp, ostream, indent + 1, key);                                                          \
-    ostream << ",\n" << std::string(indent - 1, '\t');                                             \
-    ostream << "}";
-
-#define Exp_last_noAggregat(mem, exp)                                                              \
-    ostream << "data." << #mem << " = ";                                                           \
-    write(exp, ostream, indent + 1, key);                                                          \
-    ostream << ";\n" << std::string(indent, '\t');                                                 \
-    ostream << "return data";                                                                      \
-    ostream << ";\n" << std::string(indent - 1, '\t');                                             \
-    ostream << "}()";
-
-// NOLINTEND(cppcoreguidelines-macro-usage)
-
 namespace {
-// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-void write(const std::string &str, std::ostream &ostream, [[maybe_unused]] size_t indent,
-           [[maybe_unused]] const std::string &key) {
-    ostream << "\"" << str << "\"";
-}
-
-class plain_string : public std::string {};
-
-void write(const plain_string &str, std::ostream &ostream, [[maybe_unused]] size_t indent,
-           [[maybe_unused]] const std::string &key) {
-    ostream << str;
-}
-
-void write(const bool &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
-           [[maybe_unused]] const std::string &key) {
-    if (value) {
-        ostream << "true";
-    } else {
-        ostream << "false";
-    }
-}
-
-void write(const float &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
-           [[maybe_unused]] const std::string &key) {
-    ostream << std::setfill(' ') << std::setw(9) << value;
-}
-
-void write(const int &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
-           [[maybe_unused]] const std::string &key) {
-    int num = value;
-    int width = 9;
-    if (value < 0) {
-        ostream << '-';
-        num = -value;
-        width -= 1;
-    }
-    ostream << std::hex << std::setfill('0');
-    ostream << "0x" << std::setw(width) << num;
-}
-
-void write(const std::uint64_t &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
-           [[maybe_unused]] const std::string &key) {
-    ostream << std::hex << std::setfill('0');
-    ostream << "0x" << std::setw(8) << value << "U";
-}
-
-void write(const unsigned int &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
-           [[maybe_unused]] const std::string &key) {
-    ostream << std::hex << std::setfill('0');
-    ostream << "0x" << std::setw(8) << value << "U";
-}
-
-void write(const stbi_uc &value, std::ostream &ostream, [[maybe_unused]] size_t indent,
-           [[maybe_unused]] const std::string &key) {
-    ostream << std::hex << std::setfill('0');
-    ostream << "0x" << std::setw(2) << static_cast<short>(value);
-}
-
-void write(const tinyobj::texture_type_t &texture, std::ostream &ostream,
-           [[maybe_unused]] size_t indent, [[maybe_unused]] const std::string &key) {
-    ostream << std::hex << std::setfill('0');
-    ostream << "tinyobj::texture_type_t(0x" << std::setw(3) << static_cast<size_t>(texture) << ")";
-}
-
-template <typename T>
-void write(const std::vector<T> &vec, std::ostream &ostream, size_t indent, const std::string &key);
-
-// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
-template <typename T, size_t N>
-void write(const T (&arr)[N], std::ostream &ostream, size_t indent, const std::string &key);
-// NOLINTEND(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
-
-template <typename K, typename V>
-void write(const std::map<K, V> &map, std::ostream &ostream, size_t indent, const std::string &key);
-
-void write(const tinyobj::skin_weight_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::skin_weight_t");
-    Member(vertex_id);
-    Member_last(weightValues);
-}
-
-void write(const tinyobj::joint_and_weight_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::joint_and_weight_t");
-    Member(joint_id);
-    Member_last(weight);
-}
-
-void write(const ShaderData &data, std::ostream &ostream, size_t indent, const std::string &key) {
-    Decl_c("ShaderData_c");
-    Member(timestamp);
-    Exp(data, plain_string(std::format("{}_data_spv", key)));
-    Member_last(data_len);
-}
-
-void write(const TextureData &data, std::ostream &ostream, size_t indent, const std::string &key) {
-    Decl_c("TextureData_c");
-    Member(timestamp);
-    Member(width);
-    Member(height);
-    Exp(pixels, plain_string(std::format("{}_data_pixels", key)));
-    Member_last(pixels_len);
-}
-
-void write(const tinyobj::attrib_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl_noAggregat("tinyobj::attrib_t");
-    Member_noAggregat(vertices);
-    Member_noAggregat(vertex_weights);
-    Member_noAggregat(normals);
-    Member_noAggregat(texcoords);
-    Member_noAggregat(texcoord_ws);
-    Member_noAggregat(colors);
-    Member_last_noAggregat(skin_weights);
-}
-
-void write(const tinyobj::mesh_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::mesh_t");
-    Member(indices);
-    Member(num_face_vertices);
-    Member(material_ids);
-    Member(smoothing_group_ids);
-    Member_last(tags);
-}
-
-void write(const tinyobj::tag_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::tag_t");
-    Member(name);
-    Member(intValues);
-    Member(floatValues);
-    Member_last(stringValues);
-}
-
-void write(const tinyobj::lines_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::lines_t");
-    Member(indices);
-    Member_last(num_line_vertices);
-}
-
-void write(const tinyobj::points_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::points_t");
-    Member_last(indices);
-}
-
-void write(const tinyobj::index_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::index_t");
-    Member(vertex_index);
-    Member(normal_index);
-    Member_last(texcoord_index);
-}
-
-void write(const tinyobj::shape_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::shape_t");
-    Member(name);
-    Member(mesh);
-    Member(lines);
-    Member_last(points);
-}
-
-void write(const tinyobj::texture_option_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::texture_option_t");
-    Member(type);
-    Member(sharpness);
-    Member(brightness);
-    Member(contrast);
-    Member(origin_offset);
-    Member(scale);
-    Member(turbulence);
-    Member(texture_resolution);
-    Member(clamp);
-    Member(imfchan);
-    Member(blendu);
-    Member(blendv);
-    Member(bump_multiplier);
-    Member_last(colorspace);
-}
-
-void write(const tinyobj::material_t &data, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    Decl("tinyobj::material_t");
-    Member(name);
-    Member(ambient);
-    Member(diffuse);
-    Member(specular);
-    Member(transmittance);
-    Member(emission);
-    Member(shininess);
-    Member(ior);
-    Member(dissolve);
-    Member(illum);
-    Member(dummy);
-    Member(ambient_texname);
-    Member(diffuse_texname);
-    Member(specular_texname);
-    Member(specular_highlight_texname);
-    Member(bump_texname);
-    Member(displacement_texname);
-    Member(alpha_texname);
-    Member(reflection_texname);
-    Member(ambient_texopt);
-    Member(diffuse_texopt);
-    Member(specular_texopt);
-    Member(specular_highlight_texopt);
-    Member(bump_texopt);
-    Member(displacement_texopt);
-    Member(alpha_texopt);
-    Member(reflection_texopt);
-    Member(roughness);
-    Member(metallic);
-    Member(sheen);
-    Member(clearcoat_thickness);
-    Member(clearcoat_roughness);
-    Member(anisotropy);
-    Member(anisotropy_rotation);
-    Member(pad0);
-    Member(roughness_texname);
-    Member(metallic_texname);
-    Member(sheen_texname);
-    Member(emissive_texname);
-    Member(normal_texname);
-    Member(roughness_texopt);
-    Member(metallic_texopt);
-    Member(emissive_texopt);
-    Member(normal_texopt);
-    Member(pad2);
-    Member_last(unknown_parameter);
-}
-
-void write(const MeshData &data, std::ostream &ostream, size_t indent, const std::string &key) {
-    Decl("MeshData");
-    Member(timestamp);
-    Member(attrib);
-    Member(shapes);
-    Member_last(materials);
-}
-
-template <typename T>
-void write(const std::vector<T> &vec, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    int perline = 1;
-    if constexpr (std::same_as<T, unsigned int> || std::same_as<T, int> || std::same_as<T, float>) {
-        perline = 8;
-    } else if constexpr (std::same_as<T, stbi_uc>) {
-        perline = 16;
-    } else if constexpr (std::same_as<T, std::string> || std::same_as<T, tinyobj::skin_weight_t> ||
-                         std::same_as<T, tinyobj::joint_and_weight_t> ||
-                         std::same_as<T, tinyobj::index_t> || std::same_as<T, tinyobj::tag_t> ||
-                         std::same_as<T, tinyobj::shape_t> ||
-                         std::same_as<T, tinyobj::material_t>) {
-        perline = 1;
-    } else {
-        static_assert(false);
-    }
-
-    int newline = 0;
-
-    if (vec.empty()) {
-        ostream << "{}";
-        return;
-    }
-
-    ostream << "{\n";
-    for (const auto &element : vec) {
-        if (newline == 0) {
-            ostream << std::string(indent, '\t');
-        }
-        write(element, ostream, indent + 1, key);
-        ostream << ", ";
-        newline = (newline + 1) % perline;
-        if (newline == 0) {
-            ostream << "\n";
-        }
-    }
-    ostream << "\n";
-    ostream << std::string(indent - 1, '\t') << "}";
-}
-
-template <typename K, typename V>
-void write(const std::map<K, V> &map, std::ostream &ostream, size_t indent,
-           const std::string &key) {
-    if (map.empty()) {
-        ostream << "{}";
-        return;
-    }
-    ostream << "{\n";
-    for (const auto &[k, v] : map) {
-        ostream << std::string(indent, '\t');
-        ostream << "{";
-        write(k, ostream, indent + 1, key);
-        ostream << ", ";
-        write(v, ostream, indent + 1, key);
-        ostream << ", ";
-        ostream << "\n";
-    }
-    ostream << "\n";
-    ostream << std::string(indent - 1, '\t') << "}";
-}
-
-// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
-template <typename T, size_t N>
-void write(const T (&arr)[N], std::ostream &ostream, size_t indent, const std::string &key) {
-    int perline = 1;
-    if constexpr (std::same_as<T, unsigned int> || std::same_as<T, int> || std::same_as<T, int> ||
-                  std::same_as<T, float>) {
-        perline = 8;
-    } else if constexpr (std::same_as<T, stbi_uc>) {
-        perline = 16;
-    } else if constexpr (std::same_as<T, std::string> || std::same_as<T, tinyobj::skin_weight_t> ||
-                         std::same_as<T, tinyobj::joint_and_weight_t> ||
-                         std::same_as<T, tinyobj::index_t> || std::same_as<T, tinyobj::tag_t> ||
-                         std::same_as<T, tinyobj::shape_t> ||
-                         std::same_as<T, tinyobj::material_t>) {
-        perline = 1;
-    } else {
-        static_assert(false);
-    }
-
-    if constexpr (N == 0) {
-        ostream << "{}";
-        return;
-    }
-
-    int newline = 0;
-
-    ostream << "{\n";
-    for (size_t i = 0; i < N; ++i) {
-        if (newline == 0) {
-            ostream << std::string(indent, '\t');
-        }
-        write(arr[i], ostream, indent + 1, key);
-        if (i != N - 1)
-            ostream << ", ";
-        newline = (newline + 1) % perline;
-        if (newline == 0 && i != N - 1) {
-            ostream << "\n";
-        }
-    }
-    ostream << "\n";
-    ostream << std::string(indent - 1, '\t') << "}";
-}
-// NOLINTEND(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
-
 void writeData(const std::string &key, ResourcePreprocessor::resource_ptr &resource,
                const std::vector<std::filesystem::path> &artefacts) {
 
     std::vector<std::stringstream> streams;
     streams.resize(artefacts.size());
 
+    size_t indent = 1;
+    Serializer seralizer(streams.at(0), indent);
+
     Visitor v{[&](const std::unique_ptr<ShaderData> &shaderData) -> void {
                   streams.at(0) << "#include \"ShaderData.h\"\n"
                                 << "#include <stdint.h>\n\n";
 
                   streams.at(0) << "const uint32_t " << key << "_data_spv[] = ";
-                  write(shaderData->data, streams.at(0), 1, key);
+                  seralizer.write(shaderData->data);
                   streams.at(0) << ";\n\n";
 
                   streams.at(0) << "const ShaderData_c " << key << "_data = ";
-                  write(*shaderData, streams.at(0), 1, key);
+                  seralizer.write(*shaderData, key);
                   streams.at(0) << ";";
               },
               [&](const std::unique_ptr<TextureData> &textureData) -> void {
@@ -889,17 +484,17 @@ void writeData(const std::string &key, ResourcePreprocessor::resource_ptr &resou
                   streams.at(0) << "#include <stb_image.h>\n\n";
 
                   streams.at(0) << "const stbi_uc " << key << "_data_pixels[] = ";
-                  write(textureData->pixels, streams.at(0), 1, key);
+                  seralizer.write(textureData->pixels);
                   streams.at(0) << ";\n\n";
 
                   streams.at(0) << "const TextureData_c " << key << "_data = ";
-                  write(*textureData, streams.at(0), 1, key);
+                  seralizer.write(*textureData, key);
                   streams.at(0) << ";";
               },
               [&]([[maybe_unused]] const std::unique_ptr<MeshData> &meshData) -> void {
                   streams.at(0) << "#include \"MeshData.hpp\"\n\nconst MeshData " << key
                                 << "_data = ";
-                  write(*meshData, streams.at(0), 1, key);
+                  seralizer.write(*meshData);
                   streams.at(0) << ";";
               }};
 
@@ -916,7 +511,6 @@ void writeData(const std::string &key, ResourcePreprocessor::resource_ptr &resou
                                 std::chrono::high_resolution_clock::now() - start));
     }
 }
-// NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 struct Keys {
     std::vector<std::string> shaders;
@@ -938,16 +532,13 @@ void processFiles(const std::filesystem::directory_entry &entry,
                               .remove_filename();
     const auto stem = path.stem();
 
-    if (std::ranges::find(ResourcePreprocessor::shaderExtensions, extension) !=
-        ResourcePreprocessor::shaderExtensions.end()) {
+    if (std::ranges::find(shaderExtensions, extension) != shaderExtensions.end()) {
         artefacts.push_back(basePath / (stem.string() + "_" + extension + ".c"));
         keys.shaders.push_back(key);
-    } else if (std::ranges::find(ResourcePreprocessor::textureExtensions, extension) !=
-               ResourcePreprocessor::textureExtensions.end()) {
+    } else if (std::ranges::find(textureExtensions, extension) != textureExtensions.end()) {
         artefacts.push_back(basePath / (stem.string() + "_" + extension + ".c"));
         keys.textures.push_back(key);
-    } else if (std::ranges::find(ResourcePreprocessor::meshExtensions, extension) !=
-               ResourcePreprocessor::meshExtensions.end()) {
+    } else if (std::ranges::find(meshExtensions, extension) != meshExtensions.end()) {
         artefacts.push_back(basePath / (stem.string() + "_" + extension + ".cpp"));
         keys.meshes.push_back(key);
     } else {
@@ -966,14 +557,11 @@ void processFiles(const std::filesystem::directory_entry &entry,
     }
 
     std::optional<ResourcePreprocessor::resource_ptr> resource;
-    if (std::ranges::find(ResourcePreprocessor::shaderExtensions, extension) !=
-        ResourcePreprocessor::shaderExtensions.end()) {
+    if (std::ranges::find(shaderExtensions, extension) != shaderExtensions.end()) {
         resource = parseShader(path, key);
-    } else if (std::ranges::find(ResourcePreprocessor::textureExtensions, extension) !=
-               ResourcePreprocessor::textureExtensions.end()) {
+    } else if (std::ranges::find(textureExtensions, extension) != textureExtensions.end()) {
         resource = parseTexture(path, key);
-    } else if (std::ranges::find(ResourcePreprocessor::meshExtensions, extension) !=
-               ResourcePreprocessor::meshExtensions.end()) {
+    } else if (std::ranges::find(meshExtensions, extension) != meshExtensions.end()) {
         resource = parseMesh(path, key);
     }
 
