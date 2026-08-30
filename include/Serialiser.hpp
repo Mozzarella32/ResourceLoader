@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MeshData.hpp"
 #include "ResourcePreprocessor.hpp"
 
 #include <stb_image.h>

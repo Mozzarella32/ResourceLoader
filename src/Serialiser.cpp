@@ -1,5 +1,5 @@
 #include "Serialiser.hpp"
-
+#include "MeshData.hpp"
 #include "ResourcePreprocessor.hpp"
 
 #include <stb_image.h>
@@ -17,22 +17,28 @@
 #include <string>
 #include <string_view>
 
-using std::string;
-
 auto Serializer::getOstream() -> std::ostream & { return ostreamRef.get(); }
-auto Serializer::getIndent() -> std::string { return string(indent, '\t'); }
+
+auto Serializer::getIndent() -> std::string {
+    // NOLINTBEGIN(modernize-return-braced-init-list)
+    return std::string(indent, '\t');
+    // NOLINTEND(modernize-return-braced-init-list)
+}
 Serializer::Serializer(std::ostream &ostream, size_t &indent)
     : ostreamRef(ostream), indent(indent) {}
+
 void Serializer::decl(std::string_view name) {
     auto &ostream = getOstream();
     ostream << name << " {";
     ostream << "\n" << getIndent();
 }
+
 void Serializer::declC() {
     auto &ostream = getOstream();
     ostream << " {";
     ostream << "\n" << getIndent();
 }
+
 void Serializer::declNoAggregat(std::string_view name) {
     auto &ostream = getOstream();
     ostream << " []() {";
@@ -40,14 +46,17 @@ void Serializer::declNoAggregat(std::string_view name) {
     ostream << name << " data;";
     ostream << "\n" << getIndent();
 }
+
 void Serializer::write(const std::string &str) {
     auto &ostream = getOstream();
     ostream << "\"" << str << "\"";
 }
+
 void Serializer::write(const plain_string &str) {
     auto &ostream = getOstream();
     ostream << str;
 }
+
 void Serializer::write(const bool &value) {
     auto &ostream = getOstream();
     if (value) {
@@ -56,11 +65,13 @@ void Serializer::write(const bool &value) {
         ostream << "false";
     }
 }
+
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 void Serializer::write(const float &value) {
     auto &ostream = getOstream();
     ostream << std::setfill(' ') << std::setw(9) << value;
 }
+
 void Serializer::write(const int &value) {
     auto &ostream = getOstream();
     int num = value;
@@ -73,43 +84,51 @@ void Serializer::write(const int &value) {
     ostream << std::hex << std::setfill('0');
     ostream << "0x" << std::setw(width) << num;
 }
+
 void Serializer::write(const std::uint64_t &value) {
     auto &ostream = getOstream();
     ostream << std::hex << std::setfill('0');
     ostream << "0x" << std::setw(8) << value << "U";
 }
+
 void Serializer::write(const unsigned int &value) {
     auto &ostream = getOstream();
     ostream << std::hex << std::setfill('0');
     ostream << "0x" << std::setw(8) << value << "U";
 }
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
 void Serializer::write(const stbi_uc &value) {
     auto &ostream = getOstream();
     ostream << std::hex << std::setfill('0');
     ostream << "0x" << std::setw(2) << static_cast<short>(value);
 }
+
 void Serializer::write(const tinyobj::texture_type_t &texture) {
     auto &ostream = getOstream();
     ostream << std::hex << std::setfill('0');
     ostream << "tinyobj::texture_type_t(0x" << std::setw(3) << static_cast<size_t>(texture) << ")";
 }
+
 void Serializer::write(const tinyobj::skin_weight_t &data) {
     decl("tinyobj::skin_weight_t");
     member("vertex_id", data.vertex_id);
     member("weightValues", data.weightValues, true);
 }
+
 void Serializer::write(const tinyobj::joint_and_weight_t &data) {
     decl("tinyobj::joint_and_weight_t");
     member("joint_id", data.joint_id);
     member("weight", data.weight, true);
 }
+
 void Serializer::write(const ShaderData &data, std::string_view key) {
     declC();
     member("timestamp", data.timestamp);
     exp("data", plain_string(std::format("{}_data_spv", key)));
     member("data_len", data.data_len, true);
 }
+
 void Serializer::write(const TextureData &data, std::string_view key) {
     declC();
     member("timestamp", data.timestamp);
@@ -118,6 +137,7 @@ void Serializer::write(const TextureData &data, std::string_view key) {
     exp("pixels", plain_string(std::format("{}_data_pixels", key)));
     member("pixels_len", data.pixels_len, true);
 }
+
 void Serializer::write(const tinyobj::attrib_t &data) {
     declNoAggregat("tinyobj::attrib_t");
     memberNoAggregat("vertices", data.vertices);
@@ -128,6 +148,7 @@ void Serializer::write(const tinyobj::attrib_t &data) {
     memberNoAggregat("colors", data.colors);
     memberNoAggregat("skin_weights", data.skin_weights, true);
 }
+
 void Serializer::write(const tinyobj::mesh_t &data) {
     decl("tinyobj::mesh_t");
     member("indices", data.indices);
@@ -136,6 +157,7 @@ void Serializer::write(const tinyobj::mesh_t &data) {
     member("smoothing_group_ids", data.smoothing_group_ids);
     member("tags", data.tags, true);
 }
+
 void Serializer::write(const tinyobj::tag_t &data) {
     decl("tinyobj::tag_t");
     member("name", data.name);
@@ -143,21 +165,25 @@ void Serializer::write(const tinyobj::tag_t &data) {
     member("floatValues", data.floatValues);
     member("stringValues", data.stringValues, true);
 }
+
 void Serializer::write(const tinyobj::lines_t &data) {
     decl("tinyobj::lines_t");
     member("indices", data.indices);
     member("num_line_vertices", data.num_line_vertices, true);
 }
+
 void Serializer::write(const tinyobj::points_t &data) {
     decl("tinyobj::points_t");
     member("indices", data.indices, true);
 }
+
 void Serializer::write(const tinyobj::index_t &data) {
     decl("tinyobj::index_t");
     member("vertex_index", data.vertex_index);
     member("normal_index", data.normal_index);
     member("texcoord_index", data.texcoord_index, true);
 }
+
 void Serializer::write(const tinyobj::shape_t &data) {
     decl("tinyobj::shape_t");
     member("name", data.name);
@@ -165,6 +191,7 @@ void Serializer::write(const tinyobj::shape_t &data) {
     member("lines", data.lines);
     member("points", data.points, true);
 }
+
 void Serializer::write(const tinyobj::texture_option_t &data) {
     decl("tinyobj::texture_option_t");
     member("type", data.type);
@@ -182,6 +209,7 @@ void Serializer::write(const tinyobj::texture_option_t &data) {
     member("bump_multiplier", data.bump_multiplier);
     member("colorspace", data.colorspace, true);
 }
+
 void Serializer::write(const tinyobj::material_t &data) {
     decl("tinyobj::material_t");
     member("name", data.name);
@@ -231,6 +259,7 @@ void Serializer::write(const tinyobj::material_t &data) {
     member("pad2", data.pad2);
     member("unknown_parameter", data.unknown_parameter, true);
 }
+
 void Serializer::write(const MeshData &data) {
     decl("MeshData");
     member("timestamp", data.timestamp);
@@ -238,6 +267,7 @@ void Serializer::write(const MeshData &data) {
     member("shapes", data.shapes);
     member("materials", data.materials, true);
 }
+
 void Serializer::expNoAggregat(std::string_view memberName, const auto &expresionValue, bool last) {
     auto &ostream = getOstream();
     ostream << "data." << memberName << " = ";

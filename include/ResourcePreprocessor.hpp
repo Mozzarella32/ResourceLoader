@@ -3,7 +3,6 @@
 
 #include <stb_image.h>
 
-#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -44,6 +43,8 @@ class ResourcePreprocessor {
     std::filesystem::path outputDir;
 
   public:
+    enum class ResourceType : std::uint8_t { Shader, Texture, Mesh };
+
     [[nodiscard]] auto getInputDir() const -> const std::filesystem::path &;
     [[nodiscard]] auto getOutputDir() const -> const std::filesystem::path &;
 

@@ -9,12 +9,14 @@
 #include <glslang/Public/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
 
+#include <stdexcept>
 #include <tiny_obj_loader.h>
 
 #include <algorithm>
 #include <cassert>
 #include <chrono>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -231,23 +233,34 @@ auto parseShader(const std::filesystem::path &path, const std::string &key)
 
     std::optional<std::vector<uint32_t>> vecOpt;
 
+    constinit static const auto extensionToEShLanguage =
+        std::to_array<std::pair<std::string_view, EShLanguage>>({
+            {"frag", EShLanguage::EShLangFragment},
+            {"vert", EShLanguage::EShLangVertex},
+            {"geom", EShLanguage::EShLangGeometry},
+            {"comp", EShLanguage::EShLangCompute},
+            {"tesc", EShLanguage::EShLangTessControl},
+            {"tese", EShLanguage::EShLangTessEvaluation},
+        });
+
     const auto extension = path.extension().string().substr(1);
-    if (extension == "frag") {
-        vecOpt = compileSingleShader(readFile(path), EShLanguage::EShLangFragment, key);
-    } else if (extension == "vert") {
-        vecOpt = compileSingleShader(readFile(path), EShLanguage::EShLangVertex, key);
-    } else if (extension == "geom") {
-        vecOpt = compileSingleShader(readFile(path), EShLanguage::EShLangGeometry, key);
-    } else if (extension == "comp") {
-        vecOpt = compileSingleShader(readFile(path), EShLanguage::EShLangCompute, key);
-    } else if (extension == "tesc") {
-        vecOpt = compileSingleShader(readFile(path), EShLanguage::EShLangTessControl, key);
-    } else if (extension == "tese") {
-        vecOpt = compileSingleShader(readFile(path), EShLanguage::EShLangTessEvaluation, key);
-    } else if (extension == "spv") {
-        std::cerr << "Currently not supported, would just need to read bytes";
-        return std::nullopt;
+    if (extension == "spv") {
+        throw std::logic_error(std::format(
+            "ResourcePreprocessor: Currently not supported, would just need to read bytes: {}",
+            path.string()));
     }
+
+    const auto *iter = std::ranges::find_if(
+        extensionToEShLanguage, [&](const auto pair) { return pair.first == extension; });
+
+    if (iter == extensionToEShLanguage.end()) {
+        throw std::logic_error(
+            std::format("ResourcePreprocessor: parseShader on file with unsupported extension: {}",
+                        path.string()));
+    }
+
+    vecOpt = compileSingleShader(readFile(path), iter->second, key);
+
     if (!vecOpt) {
         return std::nullopt;
     }
@@ -315,15 +328,39 @@ auto parseMesh(const std::filesystem::path &path, const std::string &name)
 
     return resouce;
 }
+
+auto getArtefactAndType(const std::filesystem::path &path,
+                        ResourcePreprocessor &resourcePreprocessor)
+    -> std::optional<std::tuple<std::filesystem::path, ResourcePreprocessor::ResourceType>> {
+    const auto extension = path.extension().string().substr(1);
+    const auto basePath = (resourcePreprocessor.getOutputDir() /
+                           std::filesystem::relative(path, resourcePreprocessor.getInputDir()))
+                              .remove_filename();
+    const auto stem = path.stem();
+
+    const constexpr std::array shaderExtensions = {
+        "frag", "vert", "geom", "comp", "tesc", "tese", "spv",
+    };
+
+    const constexpr std::array textureExtensions = {"png", "jpg"};
+
+    const constexpr std::array meshExtensions = {"obj"};
+
+    if (std::ranges::find(shaderExtensions, extension) != shaderExtensions.end()) {
+        return std::make_tuple(basePath / (stem.string() + "_" + extension + ".c"),
+                               ResourcePreprocessor::ResourceType::Shader);
+    }
+    if (std::ranges::find(textureExtensions, extension) != textureExtensions.end()) {
+        return std::make_tuple(basePath / (stem.string() + "_" + extension + ".c"),
+                               ResourcePreprocessor::ResourceType::Texture);
+    }
+    if (std::ranges::find(meshExtensions, extension) != meshExtensions.end()) {
+        return std::make_tuple(basePath / (stem.string() + "_" + extension + ".cpp"),
+                               ResourcePreprocessor::ResourceType::Mesh);
+    }
+    return std::nullopt;
+}
 } // namespace
-
-const constexpr std::array shaderExtensions = {
-    "frag", "vert", "geom", "comp", "tesc", "tese", "spv",
-};
-
-const constexpr std::array textureExtensions = {"png", "jpg"};
-
-const constexpr std::array meshExtensions = {"obj"};
 
 void ResourcePreprocessor::work() {
 
@@ -343,9 +380,6 @@ void ResourcePreprocessor::work() {
 
                 const auto &path = entry.path();
                 const auto key = getKey(path);
-                const auto extension = path.extension().string().substr(1);
-                auto basePath = outputDir / std::filesystem::relative(path, inputDir);
-                basePath.remove_filename();
 
                 if (!data.contains(key)) {
                     continue;
@@ -363,17 +397,28 @@ void ResourcePreprocessor::work() {
                     continue;
                 }
 
+                auto artefactTypeOpt = getArtefactAndType(path, *this);
+                if (!artefactTypeOpt) {
+                    throw std::logic_error(std::format("ResourcePreprocessor: {} is no file with a "
+                                                       "known extension despite {} beeing tracked",
+                                                       path.string(), key));
+                }
+                const auto &[_, type] = artefactTypeOpt.value();
+
                 std::optional<resource_ptr> resource;
-                if (std::ranges::find(shaderExtensions, extension) != shaderExtensions.end()) {
+                switch (type) {
+                case ResourceType::Shader:
                     resource = parseShader(path, key);
                     shadersNeedUpdating = true;
-                } else if (std::ranges::find(textureExtensions, extension) !=
-                           textureExtensions.end()) {
+                    break;
+                case ResourceType::Texture:
                     resource = parseTexture(path, key);
                     texturesNeedUpdating = true;
-                } else if (std::ranges::find(meshExtensions, extension) != meshExtensions.end()) {
+                    break;
+                case ResourceType::Mesh:
                     resource = parseMesh(path, key);
                     meshesNeedUpdate = true;
+                    break;
                 }
 
                 if (!resource) {
@@ -525,25 +570,12 @@ void processFiles(const std::filesystem::directory_entry &entry,
 
     const auto &path = entry.path();
     std::vector<std::filesystem::path> artefacts;
-    const auto key = resourcePreprocessor.getKey(path);
-    const auto extension = path.extension().string().substr(1);
-    const auto basePath = (resourcePreprocessor.getOutputDir() /
-                           std::filesystem::relative(path, resourcePreprocessor.getInputDir()))
-                              .remove_filename();
-    const auto stem = path.stem();
-
-    if (std::ranges::find(shaderExtensions, extension) != shaderExtensions.end()) {
-        artefacts.push_back(basePath / (stem.string() + "_" + extension + ".c"));
-        keys.shaders.push_back(key);
-    } else if (std::ranges::find(textureExtensions, extension) != textureExtensions.end()) {
-        artefacts.push_back(basePath / (stem.string() + "_" + extension + ".c"));
-        keys.textures.push_back(key);
-    } else if (std::ranges::find(meshExtensions, extension) != meshExtensions.end()) {
-        artefacts.push_back(basePath / (stem.string() + "_" + extension + ".cpp"));
-        keys.meshes.push_back(key);
-    } else {
+    auto artefactTypeOpt = getArtefactAndType(path, resourcePreprocessor);
+    if (!artefactTypeOpt) {
         return;
     }
+    const auto &[artefact, type] = artefactTypeOpt.value();
+    artefacts.push_back(artefact);
 
     std::uint64_t dest_mtime = 0;
     for (const auto &artefact : artefacts) {
@@ -556,13 +588,22 @@ void processFiles(const std::filesystem::directory_entry &entry,
         return;
     }
 
+    const auto key = resourcePreprocessor.getKey(path);
+
     std::optional<ResourcePreprocessor::resource_ptr> resource;
-    if (std::ranges::find(shaderExtensions, extension) != shaderExtensions.end()) {
+    switch (type) {
+    case ResourcePreprocessor::ResourceType::Shader:
+        keys.shaders.push_back(key);
         resource = parseShader(path, key);
-    } else if (std::ranges::find(textureExtensions, extension) != textureExtensions.end()) {
+        break;
+    case ResourcePreprocessor::ResourceType::Texture:
+        keys.textures.push_back(key);
         resource = parseTexture(path, key);
-    } else if (std::ranges::find(meshExtensions, extension) != meshExtensions.end()) {
+        break;
+    case ResourcePreprocessor::ResourceType::Mesh:
+        keys.meshes.push_back(key);
         resource = parseMesh(path, key);
+        break;
     }
 
     if (!resource) {
