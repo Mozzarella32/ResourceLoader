@@ -78,11 +78,10 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
     ostream << buffer.str();
     ostream.close();
     const auto writeTime = std::chrono::steady_clock::now() - start;
-    std::cout << std::filesystem::relative(outputPath, baseOutputPath).string() << ": (Parsing: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(parseTime).count()
-              << "ms, Writing: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime).count()
-              << "ms)\n";
+    std::cout << std::filesystem::relative(outputPath, baseOutputPath).string()
+              << ": (Parsing: " << std::chrono::duration_cast<std::chrono::milliseconds>(parseTime)
+              << ", Writing: " << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime)
+              << ")\n";
 }
 
 struct Keys {
@@ -103,6 +102,20 @@ void processFiles(const std::filesystem::directory_entry &entry, const ResourceP
     }
     const auto &[outputPath, type] = artefactTypeOpt.value();
 
+    const auto key = ResourcePaths::getKey(resourcePaths, path);
+
+    switch (type) {
+    case ResourceType::Shader:
+        keys.shaders.push_back(key);
+        break;
+    case ResourceType::Texture:
+        keys.textures.push_back(key);
+        break;
+    case ResourceType::Mesh:
+        keys.meshes.push_back(key);
+        break;
+    }
+
     std::time_t destinationModificationTime =
         std::max(std::time_t{0}, modificationTime(outputPath));
     std::time_t srcModificationTime = modificationTime(path.string());
@@ -111,20 +124,15 @@ void processFiles(const std::filesystem::directory_entry &entry, const ResourceP
         return;
     }
 
-    const auto key = ResourcePaths::getKey(resourcePaths, path);
-
     std::optional<std::tuple<ResourcePtr, std::chrono::steady_clock::duration>> resourceTime;
     switch (type) {
     case ResourceType::Shader:
-        keys.shaders.push_back(key);
         resourceTime = parseShader(path, key);
         break;
     case ResourceType::Texture:
-        keys.textures.push_back(key);
         resourceTime = parseTexture(path, key);
         break;
     case ResourceType::Mesh:
-        keys.meshes.push_back(key);
         resourceTime = parseMesh(path, key);
         break;
     }
@@ -157,7 +165,6 @@ void writeResources(Keys &keys, const ResourcePaths &resourcePaths) {
     buff << "#include <array>\n";
     buff << "#include <tuple>\n";
     buff << "#include <string_view>\n";
-    buff << "#include <variant>\n";
     buff << "\n";
     buff << "extern \"C\" {\n";
     for (const auto &key : keys.shaders) {
@@ -192,13 +199,12 @@ void writeResources(Keys &keys, const ResourcePaths &resourcePaths) {
     writeArray("textures", keys.textures, "TextureData_c");
     writeArray("meshes", keys.meshes, "MeshData");
 
-    buff << "[[maybe_unused]] const auto init_data = []() noexcept { "
-            "PreprocessorDataHolder::setData({.shaders=shaders, .textures=textures, "
-            ".meshes=meshes}); return "
-            "std::monostate{}; }();\n";
-
-    buff << "}}";
-
+    buff << "}";
+    buff << R"(
+auto getPreprocessorData() -> PreprocessorData {
+    return{.shaders = shaders, .textures = textures, .meshes = meshes};
+};
+)";
     if (buff.str() != readFile(resourceCpp)) {
         auto start = std::chrono::high_resolution_clock::now();
         std::ofstream ostream(resourceCpp);
@@ -207,7 +213,7 @@ void writeResources(Keys &keys, const ResourcePaths &resourcePaths) {
         const auto writeTime = std::chrono::high_resolution_clock::now() - start;
         std::cout << std::filesystem::relative(resourceCpp, resourcePaths.outputDir).string()
                   << ": (Writing: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime) << "ms)\n";
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime) << ")\n";
     }
 }
 } // namespace

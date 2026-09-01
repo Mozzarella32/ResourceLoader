@@ -8,37 +8,17 @@
 
 #include <concepts>
 #include <cstdint>
-#include <optional>
 #include <span>
-#include <stdexcept>
 #include <string_view>
 #include <tuple>
 
-struct PreprocessorDataHolder {
-  private:
-    struct Data {
-        std::span<const std::tuple<std::string_view, ShaderData_c *>> shaders;
-        std::span<const std::tuple<std::string_view, TextureData_c *>> textures;
-        std::span<const std::tuple<std::string_view, MeshData *>> meshes;
-    };
-    std::optional<Data> data;
-
-    PreprocessorDataHolder() = default;
-    static auto Instance() -> PreprocessorDataHolder & {
-        static PreprocessorDataHolder instance;
-        return instance;
-    }
-
-  public:
-    static auto getData() -> const Data & {
-        if (auto &dataOpt = Instance().data; dataOpt) {
-            return dataOpt.value();
-        }
-        throw std::logic_error(
-            "ResourceLoader: Data has not been set, check if Resource.cpp was compiled");
-    }
-    static void setData(const Data &data) noexcept { Instance().data = data; }
+struct PreprocessorData {
+    std::span<const std::tuple<std::string_view, ShaderData_c *>> shaders;
+    std::span<const std::tuple<std::string_view, TextureData_c *>> textures;
+    std::span<const std::tuple<std::string_view, MeshData *>> meshes;
 };
+
+extern auto getPreprocessorData() -> PreprocessorData;
 
 template <typename T>
 concept hasTimestamp = requires(T value) {

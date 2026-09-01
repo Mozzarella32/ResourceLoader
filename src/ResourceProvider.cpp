@@ -183,7 +183,7 @@ void ResourceProvider::startUpdater(std::chrono::milliseconds suppliedRefreshTim
     assert(!running);
     refreshTime = suppliedRefreshTime;
 
-    const auto &preprocessorData = PreprocessorDataHolder::getData();
+    const auto &preprocessorData = getPreprocessorData();
     for (const auto &[key, shaderData] : preprocessorData.shaders) {
         const auto shaderDataSpan = std::span(shaderData->data, shaderData->data_len);
         data[std::string(key)] = std::make_unique<ShaderData>(
@@ -191,7 +191,6 @@ void ResourceProvider::startUpdater(std::chrono::milliseconds suppliedRefreshTim
             std::vector<uint32_t>{shaderDataSpan.begin(), shaderDataSpan.end()},
             shaderData->data_len);
     }
-
     for (const auto &[key, textureData] : preprocessorData.textures) {
         const auto textureDataSpan = std::span(textureData->pixels, textureData->pixels_len);
         data[std::string(key)] = std::make_unique<TextureData>(
