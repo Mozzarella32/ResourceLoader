@@ -23,7 +23,6 @@
 #include <iostream>
 #include <memory>
 #include <optional>
-#include <print>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -79,10 +78,11 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
     ostream << buffer.str();
     ostream.close();
     const auto writeTime = std::chrono::steady_clock::now() - start;
-    std::println("{}: (Parsing: {}, Writing: {})",
-                 std::filesystem::relative(outputPath, baseOutputPath).string(),
-                 std::chrono::duration_cast<std::chrono::milliseconds>(parseTime),
-                 std::chrono::duration_cast<std::chrono::milliseconds>(writeTime));
+    std::cout << std::filesystem::relative(outputPath, baseOutputPath).string() << ": (Parsing: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(parseTime).count()
+              << "ms, Writing: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime).count()
+              << "ms)\n";
 }
 
 struct Keys {
@@ -149,43 +149,43 @@ void writeResources(Keys &keys, const ResourcePaths &resourcePaths) {
 
     const std::filesystem::path resourceCpp = resourcePaths.outputDir / "Resource.cpp";
 
-    std::println(buff, "#include \"Resource.hpp\"");
-    std::println(buff, "#include \"ShaderData.h\"");
-    std::println(buff, "#include \"TextureData.h\"");
-    std::println(buff, "#include \"MeshData.hpp\"");
-    std::println(buff);
-    std::println(buff, "#include <array>");
-    std::println(buff, "#include <tuple>");
-    std::println(buff, "#include <string_view>");
-    std::println(buff, "#include <variant>");
-    std::println(buff);
-    std::println(buff, "extern \"C\" {{");
+    buff << "#include \"Resource.hpp\"\n";
+    buff << "#include \"ShaderData.h\"\n";
+    buff << "#include \"TextureData.h\"\n";
+    buff << "#include \"MeshData.hpp\"\n";
+    buff << "\n";
+    buff << "#include <array>\n";
+    buff << "#include <tuple>\n";
+    buff << "#include <string_view>\n";
+    buff << "#include <variant>\n";
+    buff << "\n";
+    buff << "extern \"C\" {\n";
     for (const auto &key : keys.shaders) {
-        std::println(buff, "\textern ShaderData_c {}_data;", key);
+        buff << "\textern ShaderData_c " << key << "_data;\n";
     }
     for (const auto &key : keys.textures) {
-        std::println(buff, "\textern TextureData_c {}_data;", key);
+        buff << "\textern TextureData_c " << key << "_data;\n";
     }
     for (const auto &key : keys.meshes) {
-        std::println(buff, "\textern MeshData {}_data;", key);
+        buff << "\textern MeshData " << key << "_data;\n";
     }
-    std::println(buff, "}}");
-    std::println(buff, "namespace {{");
+    buff << "}\n";
+    buff << "namespace {\n";
 
     auto writeArray = [&](std::string_view name, const std::vector<std::string> &keys,
                           std::string_view dataType) {
         if (keys.empty()) {
-            std::println(buff, "const std::array<std::tuple<std::string_view, {}*>, 0> {} = {{}};",
-                         dataType, name);
+            buff << "const std::array<std::tuple<std::string_view, " << dataType << "*>, 0> "
+                 << name << " = {};\n";
             return;
         }
-        std::println(buff, "const auto {} = std::to_array<std::tuple<std::string_view, {}*>>({{\n",
-                     name, dataType);
+        buff << "const auto " << name << " = std::to_array<std::tuple<std::string_view, "
+             << dataType << "*>>({\n";
         for (const auto &key : keys) {
-            std::println(buff, "\t{{\"{}\", &{}_data}},", key, key);
+            buff << "\t{\"" << key << "\", &" << key << "_data},\n";
         }
 
-        std::println(buff, "}});");
+        buff << "});\n";
     };
 
     writeArray("shaders", keys.shaders, "ShaderData_c");
@@ -197,7 +197,7 @@ void writeResources(Keys &keys, const ResourcePaths &resourcePaths) {
             ".meshes=meshes}); return "
             "std::monostate{}; }();\n";
 
-    std::println(buff, "}}");
+    buff << "}}";
 
     if (buff.str() != readFile(resourceCpp)) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -205,9 +205,9 @@ void writeResources(Keys &keys, const ResourcePaths &resourcePaths) {
         ostream << buff.str();
         ostream.close();
         const auto writeTime = std::chrono::high_resolution_clock::now() - start;
-        std::println("{}: (Writing: {})",
-                     std::filesystem::relative(resourceCpp, resourcePaths.outputDir).string(),
-                     std::chrono::duration_cast<std::chrono::milliseconds>(writeTime));
+        std::cout << std::filesystem::relative(resourceCpp, resourcePaths.outputDir).string()
+                  << ": (Writing: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime) << "ms)\n";
     }
 }
 } // namespace

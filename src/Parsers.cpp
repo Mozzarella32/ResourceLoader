@@ -166,7 +166,8 @@ auto parseTexture(const std::filesystem::path &path, std::string_view name)
 
     const std::size_t pixelCount =
         static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4;
-    resource->pixels.assign_range(std::span(pixels.get(), pixelCount));
+    const auto pixelsSpan = std::span(pixels.get(), pixelCount);
+    resource->pixels.assign(pixelsSpan.begin(), pixelsSpan.end());
     resource->pixels_len = resource->pixels.size();
     auto time = std::chrono::steady_clock::now() - start;
 

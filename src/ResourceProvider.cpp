@@ -15,14 +15,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <format>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <print>
-#include <ranges>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -34,7 +31,7 @@
 #include <vector>
 
 auto ResourceProvider::getShaderSpirV(std::string_view key) -> std::span<const uint32_t> {
-    const std::unique_lock uniqueLock{resouceMutex};
+    const std::scoped_lock lock{resouceMutex};
     auto valueIter = data.find(std::string{key});
     if (valueIter == data.end()) {
         std::cerr << "ResourcePreprocessor: Failed to find shader: " << key << "\n";
@@ -117,9 +114,10 @@ void ResourceProvider::updateResources() {
 
         auto outputPathTypeOpt = getOutputPathAndType(path, resourcePaths);
         if (!outputPathTypeOpt) {
-            throw std::logic_error(std::format("ResourcePreprocessor: {} is no file with a "
-                                               "known extension despite {} beeing tracked",
-                                               path.string(), key));
+            throw std::logic_error("ResourcePreprocessor: " + path.string() +
+                                   " is no file with a "
+                                   "known extension despite " +
+                                   key + " beeing tracked");
         }
         const auto &[outputPath, type] = outputPathTypeOpt.value();
 
@@ -140,7 +138,7 @@ void ResourceProvider::updateResources() {
         }
 
         if (!resourceTimeOpt) {
-            std::println(std::cerr, "ResourcePreprocessor: failed to parse {}", path.string());
+            std::cerr << "ResourcePreprocessor: failed to parse " << path.string() << "\n";
             std::visit(Visitor{[&srcModificationTime](const auto &ptr) -> void {
                            setTimestamp(*ptr, srcModificationTime);
                        }},
@@ -157,8 +155,9 @@ void ResourceProvider::updateResources() {
 
         data[key] = std::move(resource);
 
-        std::println("{}: (Parsing: {})", key,
-                     std::chrono::duration_cast<std::chrono::milliseconds>(parseTime));
+        std::cout << key << ": (Parsing: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(parseTime).count()
+                  << "ms)\n";
     }
 }
 
@@ -185,33 +184,24 @@ void ResourceProvider::startUpdater(std::chrono::milliseconds suppliedRefreshTim
     refreshTime = suppliedRefreshTime;
 
     const auto &preprocessorData = PreprocessorDataHolder::getData();
+    for (const auto &[key, shaderData] : preprocessorData.shaders) {
+        const auto shaderDataSpan = std::span(shaderData->data, shaderData->data_len);
+        data[std::string(key)] = std::make_unique<ShaderData>(
+            shaderData->timestamp,
+            std::vector<uint32_t>{shaderDataSpan.begin(), shaderDataSpan.end()},
+            shaderData->data_len);
+    }
 
-    data.insert_range(
-        preprocessorData.shaders | std::views::transform([](const auto &tuple) {
-            const auto &[key, data] = tuple;
-            return std::make_tuple(
-                std::string{key},
-                std::make_unique<ShaderData>(
-                    data->timestamp,
-                    std::vector{std::from_range, std::span(data->data, data->data_len)},
-                    data->data_len));
-        }));
-    data.insert_range(
-        preprocessorData.textures | std::views::transform([](const auto &tuple) {
-            const auto &[key, data] = tuple;
-            return std::make_tuple(
-                std::string{key},
-                std::make_unique<TextureData>(
-                    data->timestamp, data->width, data->height,
-                    std::vector{std::from_range, std::span(data->pixels, data->pixels_len)}));
-        }));
-    data.insert_range(preprocessorData.meshes | std::views::transform([](const auto &tuple) {
-                          const auto &[key, data] = tuple;
-                          return std::make_tuple(
-                              std::string{key},
-                              std::make_unique<MeshData>(data->timestamp, data->attrib,
-                                                         data->shapes, data->materials));
-                      }));
+    for (const auto &[key, textureData] : preprocessorData.textures) {
+        const auto textureDataSpan = std::span(textureData->pixels, textureData->pixels_len);
+        data[std::string(key)] = std::make_unique<TextureData>(
+            textureData->timestamp, textureData->width, textureData->height,
+            std::vector<stbi_uc>{textureDataSpan.begin(), textureDataSpan.end()});
+    }
+    for (const auto &[key, meshData] : preprocessorData.meshes) {
+        data[std::string(key)], std::make_unique<MeshData>(meshData->timestamp, meshData->attrib,
+                                                           meshData->shapes, meshData->materials);
+    };
 
     running = true;
     terminate = false;

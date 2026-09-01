@@ -10,7 +10,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <format>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -126,7 +125,7 @@ void Serializer::write(const tinyobj::joint_and_weight_t &data) {
 void Serializer::write(const ShaderData &data, std::string_view key) {
     declC();
     member("timestamp", data.timestamp);
-    exp("data", plain_string(std::format("{}_data_spv", key)));
+    exp("data", plain_string(std::string(key) + "_data_spv"));
     member("data_len", data.data_len, true);
 }
 
@@ -135,7 +134,7 @@ void Serializer::write(const TextureData &data, std::string_view key) {
     member("timestamp", data.timestamp);
     member("width", data.width);
     member("height", data.height);
-    exp("pixels", plain_string(std::format("{}_data_pixels", key)));
+    exp("pixels", plain_string(std::string(key) + "_data_pixels"));
     member("pixels_len", data.pixels_len, true);
 }
 

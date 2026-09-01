@@ -2,7 +2,6 @@
 
 #include <filesystem>
 #include <iostream>
-#include <ranges>
 #include <string>
 #include <vector>
 
@@ -16,9 +15,10 @@ void ResourcePaths::info(const ResourcePaths &resourcePaths) {
 auto ResourcePaths::getKey(const ResourcePaths &resourcePaths, const std::filesystem::path &path)
     -> std::string {
     const std::filesystem::path relative = std::filesystem::relative(path, resourcePaths.inputDir);
-    std::vector<std::string> dirs =
-        relative | std::views::transform([](const auto &dir) { return dir.string(); }) |
-        std::ranges::to<std::vector>();
+    std::vector<std::string> dirs;
+    for (const auto &dir : relative) {
+        dirs.push_back(dir.string());
+    }
     dirs.pop_back();
     std::string key;
     for (const auto &dir : dirs) {
