@@ -1,7 +1,8 @@
 #pragma once
 
 #include "MeshData.hpp"
-#include "ResourcePreprocessor.hpp"
+#include "ShaderData.hpp"
+#include "TextureData.hpp"
 
 #include <stb_image.h>
 

@@ -121,3 +121,93 @@ target_include_directories(ResourceLoaderHeaders
         "${GLSLANG_INCLUDE_DIR}"
 )
 
+if (RESOURCE_PREPROCESSOR_RESOURCES_DIR)
+    add_executable(ResourceLoaderPreprocessor "${CMAKE_CURRENT_SOURCE_DIR}/standalone/main.cpp")
+
+    target_compile_definitions(ResourceLoaderPreprocessor
+        PRIVATE
+            RESOURCE_PREPROCESSOR_RESOURCES_DIR="${RESOURCE_PREPROCESSOR_RESOURCES_DIR}"
+    )
+
+    target_link_libraries(ResourceLoaderPreprocessor
+        PRIVATE
+            ResourceLoader::Library
+    )
+
+    set(RESOURCE_PREPROCESSOR_INPUT_DIR "${RESOURCE_PREPROCESSOR_RESOURCES_DIR}/input")
+    set(RESOURCE_PREPROCESSOR_OUTPUT_DIR "${RESOURCE_PREPROCESSOR_RESOURCES_DIR}/output")
+
+    file(GLOB_RECURSE RESOURCE_INPUT_FILES
+        CONFIGURE_DEPENDS
+        "${RESOURCE_PREPROCESSOR_INPUT_DIR}/*"
+    )
+
+    set(RESOURCE_OUTPUT_FILES)
+
+    set(RESOURCE_SHADER_EXTENSIONS frag vert geom comp tesc tese spv)
+    set(RESOURCE_TEXTURE_EXTENSIONS png jpg)
+    set(RESOURCE_MESH_EXTENSIONS obj)
+
+    foreach(resource IN LISTS RESOURCE_INPUT_FILES)
+        if(IS_DIRECTORY "${resource}")
+            continue()
+        endif()
+
+        file(RELATIVE_PATH relative_resource
+            "${RESOURCE_PREPROCESSOR_INPUT_DIR}"
+            "${resource}"
+        )
+
+        get_filename_component(resource_dir
+            "${relative_resource}"
+            DIRECTORY
+        )
+
+        get_filename_component(resource_name
+            "${relative_resource}"
+            NAME_WE
+        )
+
+        get_filename_component(resource_extension
+            "${relative_resource}"
+            EXT
+        )
+
+        string(SUBSTRING "${resource_extension}" 1 -1 resource_extension)
+
+        if(resource_extension IN_LIST RESOURCE_SHADER_EXTENSIONS)
+            set(generated_extension ".c")
+        elseif(resource_extension IN_LIST RESOURCE_TEXTURE_EXTENSIONS)
+            set(generated_extension ".c")
+        elseif(resource_extension IN_LIST RESOURCE_MESH_EXTENSIONS)
+            set(generated_extension ".cpp")
+        else()
+            continue()
+        endif()
+
+        set(generated_file "${RESOURCE_PREPROCESSOR_OUTPUT_DIR}/${resource_dir}/${resource_name}_${resource_extension}${generated_extension}")
+
+        list(APPEND RESOURCE_OUTPUT_FILES "${generated_file}")
+    endforeach()
+        list(APPEND RESOURCE_OUTPUT_FILES "${RESOURCE_PREPROCESSOR_OUTPUT_DIR}/Resource.cpp")
+
+    add_custom_command(
+        OUTPUT ${RESOURCE_OUTPUT_FILES}
+        COMMAND $<TARGET_FILE:ResourceLoaderPreprocessor>
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        DEPENDS ResourceLoaderPreprocessor
+        COMMENT "Running ResourceLoaderPreprocessor"
+        VERBATIM
+    )
+
+    add_library(ResourceLoaderPreprocessedLibrary
+        ${RESOURCE_OUTPUT_FILES}
+    )
+
+    target_link_libraries(ResourceLoaderPreprocessedLibrary
+        PRIVATE
+            ResourceLoader::Headers
+    )
+
+    add_library(ResourceLoader::Preprocessed ALIAS ResourceLoaderPreprocessedLibrary)
+endif()
