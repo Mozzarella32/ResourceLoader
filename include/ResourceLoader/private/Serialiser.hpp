@@ -26,7 +26,7 @@ class Serializer {
     std::reference_wrapper<size_t> indent;
 
     auto getOstream() -> std::ostream &;
-    auto getIndent() -> std::string;
+    void writeIndent();
 
   public:
     Serializer(std::ostream &ostream, size_t &indent);
@@ -39,9 +39,9 @@ class Serializer {
     void exp(std::string_view memberName, const auto &expresionValue, bool last = false);
     void expNoAggregat(std::string_view memberName, const auto &expresionValue, bool last = false);
 
-    void write(const std::string &str);
+    void write(std::string_view str);
 
-    class plain_string : public std::string {};
+    class plain_string : public std::string_view {};
 
     void write(const plain_string &str);
     void write(const bool &value);
@@ -98,7 +98,7 @@ class Serializer {
         ostream << "{\n";
         for (const auto &element : vec) {
             if (newline == 0) {
-                ostream << getIndent();
+                writeIndent();
             }
             indent++;
             write(element);
@@ -111,7 +111,8 @@ class Serializer {
         }
         ostream << "\n";
         indent--;
-        ostream << getIndent() << "}";
+        writeIndent();
+        ostream << "}";
         indent++;
     }
 
@@ -135,7 +136,8 @@ class Serializer {
         }
         ostream << "\n";
         indent--;
-        ostream << getIndent() << "}";
+        writeIndent();
+        ostream << "}";
         indent++;
     }
 
@@ -168,8 +170,7 @@ class Serializer {
         ostream << "{\n";
         for (size_t i = 0; i < N; ++i) {
             if (newline == 0) {
-                ostream << getIndent();
-                ;
+                writeIndent();
             }
             indent++;
             write(arr[i]);
@@ -183,7 +184,8 @@ class Serializer {
         }
         ostream << "\n";
         indent--;
-        ostream << getIndent() << "}";
+        writeIndent();
+        ostream << "}";
         indent++;
     }
     // NOLINTEND(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)

@@ -1,9 +1,9 @@
-#include "Parsers.hpp"
+#include "ResourceLoader/private/Parsers.hpp"
 
-#include "MeshData.hpp"
-#include "ResourcePtr.hpp"
-#include "ShaderData.hpp"
-#include "TextureData.hpp"
+#include "ResourceLoader/private/MeshData.hpp"
+#include "ResourceLoader/private/ResourcePtr.hpp"
+#include "ResourceLoader/private/ShaderData.hpp"
+#include "ResourceLoader/private/TextureData.hpp"
 
 #include <SPIRV/GlslangToSpv.h>
 #include <glslang/Public/ResourceLimits.h>
@@ -99,6 +99,7 @@ auto readFile(const std::filesystem::path &path) -> std::string {
 
 } // namespace
 
+namespace ResourceLoader {
 auto parseShader(const std::filesystem::path &path, std::string_view name)
     -> std::optional<std::tuple<ResourcePtr, std::chrono::steady_clock::duration>> {
 
@@ -194,3 +195,4 @@ auto parseMesh(const std::filesystem::path &path, std::string_view name)
 
     return std::make_tuple(std::move(resouce), std::chrono::steady_clock::now() - start);
 }
+} // namespace ResourceLoader

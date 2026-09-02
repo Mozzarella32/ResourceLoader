@@ -1,5 +1,6 @@
 #pragma once
 
+namespace ResourceLoader {
 struct GlslangRAII {
     GlslangRAII();
     ~GlslangRAII();
@@ -9,3 +10,4 @@ struct GlslangRAII {
     auto operator=(const GlslangRAII &) noexcept = delete;
     auto operator=(GlslangRAII &&) noexcept = delete;
 };
+} // namespace ResourceLoader

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ResourcePaths.hpp"
-#include "ResourcePtr.hpp"
+#include "ResourceLoader/Paths.hpp"
+#include "ResourceLoader/private/ResourcePtr.hpp"
 
 #include <stb_image.h>
 
@@ -18,19 +18,20 @@
 #include <unordered_map>
 #include <utility>
 
-class ResourceProvider {
+namespace ResourceLoader {
+class Provider {
   private:
-    ResourcePaths resourcePaths;
+    Paths resourcePaths;
 
   public:
-    ResourceProvider(ResourcePaths resourcePaths) : resourcePaths(std::move(resourcePaths)) {}
+    Provider(Paths resourcePaths) : resourcePaths(std::move(resourcePaths)) {}
 
-    ResourceProvider(const ResourceProvider &) noexcept = delete;
-    ResourceProvider(ResourceProvider &&) noexcept = delete;
-    auto operator=(const ResourceProvider &) noexcept = delete;
-    auto operator=(ResourceProvider &&) noexcept = delete;
+    Provider(const Provider &) noexcept = delete;
+    Provider(Provider &&) noexcept = delete;
+    auto operator=(const Provider &) noexcept = delete;
+    auto operator=(Provider &&) noexcept = delete;
 
-    ~ResourceProvider();
+    ~Provider();
 
     // key is in format [name]_[type]
     auto getShaderSpirV(std::string_view key) -> std::span<const uint32_t>;
@@ -71,3 +72,4 @@ class ResourceProvider {
     auto texturesNeedUpdatingClear() -> bool;
     auto meshesNeedUpdateClear() -> bool;
 };
+} // namespace ResourceLoader

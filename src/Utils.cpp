@@ -1,7 +1,7 @@
-#include "Utils.hpp"
+#include "ResourceLoader/private/Utils.hpp"
 
-#include "ResourcePaths.hpp"
-#include "ResourceType.hpp"
+#include "ResourceLoader/Paths.hpp"
+#include "ResourceLoader/private/ResourceType.hpp"
 
 #include <algorithm>
 #include <array>
@@ -14,6 +14,7 @@
 #include <string>
 #include <tuple>
 
+namespace ResourceLoader {
 auto modificationTime(const std::filesystem::path &path) -> std::time_t {
     if (!std::filesystem::exists(path)) {
         return 0;
@@ -25,7 +26,7 @@ auto modificationTime(const std::filesystem::path &path) -> std::time_t {
     return std::chrono::system_clock::to_time_t(sctp);
 }
 
-auto getOutputPathAndType(const std::filesystem::path &path, const ResourcePaths &resourcePaths)
+auto getOutputPathAndType(const std::filesystem::path &path, const Paths &resourcePaths)
     -> std::optional<std::tuple<std::filesystem::path, ResourceType>> {
     const auto extension = path.extension().string().substr(1);
     const auto basePath =
@@ -71,3 +72,4 @@ auto readFile(const std::filesystem::path &path) -> std::string {
     }
     return contents;
 }
+} // namespace ResourceLoader

@@ -1,12 +1,12 @@
-#include "ResourceProvider.hpp"
-#include "MeshData.hpp"
-#include "Parsers.hpp"
-#include "Resource.hpp"
-#include "ResourcePtr.hpp"
-#include "ResourceType.hpp"
-#include "ShaderData.hpp"
-#include "TextureData.hpp"
-#include "Utils.hpp"
+#include "ResourceLoader/Provider.hpp"
+#include "ResourceLoader/private/MeshData.hpp"
+#include "ResourceLoader/private/Parsers.hpp"
+#include "ResourceLoader/private/Resource.hpp"
+#include "ResourceLoader/private/ResourcePtr.hpp"
+#include "ResourceLoader/private/ResourceType.hpp"
+#include "ResourceLoader/private/ShaderData.hpp"
+#include "ResourceLoader/private/TextureData.hpp"
+#include "ResourceLoader/private/Utils.hpp"
 
 #include <Visitor.hpp>
 
@@ -30,7 +30,8 @@
 #include <variant>
 #include <vector>
 
-auto ResourceProvider::getShaderSpirV(std::string_view key) -> std::span<const uint32_t> {
+namespace ResourceLoader {
+auto Provider::getShaderSpirV(std::string_view key) -> std::span<const uint32_t> {
     const std::scoped_lock lock{resouceMutex};
     auto valueIter = data.find(std::string{key});
     if (valueIter == data.end()) {
@@ -53,11 +54,11 @@ auto ResourceProvider::getShaderSpirV(std::string_view key) -> std::span<const u
     return std::visit(v, valueIter->second);
 }
 
-auto ResourceProvider::spirVGetter() -> std::function<std::span<const uint32_t>(std::string_view)> {
+auto Provider::spirVGetter() -> std::function<std::span<const uint32_t>(std::string_view)> {
     return [&](std::string_view key) { return getShaderSpirV(key); };
 }
 
-auto ResourceProvider::getTextureData(std::string_view key)
+auto Provider::getTextureData(std::string_view key)
     -> std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>> {
     const std::scoped_lock lock{resouceMutex};
     auto iter = data.find(std::string{key});
@@ -81,12 +82,12 @@ auto ResourceProvider::getTextureData(std::string_view key)
     return std::visit(v, iter->second);
 }
 
-auto ResourceProvider::textureGetter() -> std::function<
+auto Provider::textureGetter() -> std::function<
     std::tuple<std::pair<uint32_t, uint32_t>, std::span<const std::byte>>(std::string_view)> {
     return [&](std::string_view key) { return getTextureData(key); };
 }
 
-void ResourceProvider::updateResources() {
+void Provider::updateResources() {
     for (const auto &entry :
          std::filesystem::recursive_directory_iterator(resourcePaths.inputDir)) {
         if (!entry.is_regular_file()) {
@@ -94,7 +95,7 @@ void ResourceProvider::updateResources() {
         }
 
         const auto &path = entry.path();
-        const auto key = ResourcePaths::getKey(resourcePaths, path);
+        const auto key = Paths::getKey(resourcePaths, path);
 
         if (!data.contains(key)) {
             continue;
@@ -161,7 +162,7 @@ void ResourceProvider::updateResources() {
     }
 }
 
-void ResourceProvider::work() {
+void Provider::work() {
 
     if (!std::filesystem::exists(resourcePaths.inputDir)) {
         std::cerr << "ResourcePreprocessor: No Hot shader reloading without "
@@ -179,7 +180,7 @@ void ResourceProvider::work() {
     }
 }
 
-void ResourceProvider::startUpdater(std::chrono::milliseconds suppliedRefreshTime) {
+void Provider::startUpdater(std::chrono::milliseconds suppliedRefreshTime) {
     assert(!running);
     refreshTime = suppliedRefreshTime;
 
@@ -207,25 +208,26 @@ void ResourceProvider::startUpdater(std::chrono::milliseconds suppliedRefreshTim
     worker = std::thread([this]() -> void { this->work(); });
 }
 
-void ResourceProvider::stopUpdater() {
+void Provider::stopUpdater() {
     assert(running);
 
     terminate = true;
     worker.join();
     running = false;
 }
-auto ResourceProvider::shadersNeedUpdatingClear() -> bool {
+auto Provider::shadersNeedUpdatingClear() -> bool {
     return std::exchange(shadersNeedUpdating, false);
 }
-auto ResourceProvider::texturesNeedUpdatingClear() -> bool {
+auto Provider::texturesNeedUpdatingClear() -> bool {
     return std::exchange(texturesNeedUpdating, false);
 }
-auto ResourceProvider::meshesNeedUpdateClear() -> bool {
+auto Provider::meshesNeedUpdateClear() -> bool {
     return std::exchange(meshesNeedUpdate, false);
 }
 
-ResourceProvider::~ResourceProvider() {
+Provider::~Provider() {
     if (running) {
         stopUpdater();
     }
 }
+} // namespace ResourceLoader

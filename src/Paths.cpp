@@ -1,19 +1,19 @@
-#include "ResourcePaths.hpp"
+#include "ResourceLoader/Paths.hpp"
 
 #include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
 
-void ResourcePaths::info(const ResourcePaths &resourcePaths) {
+namespace ResourceLoader {
+void Paths::info(const Paths &resourcePaths) {
     std::cout << "ResourcePaths: Input dir: "
               << (resourcePaths.inputDir.empty() ? "<none>" : resourcePaths.inputDir) << "\n";
     std::cout << "ResourcePreprocessor: Output dir: "
               << (resourcePaths.outputDir.empty() ? "<none>" : resourcePaths.outputDir) << "\n";
 }
 
-auto ResourcePaths::getKey(const ResourcePaths &resourcePaths, const std::filesystem::path &path)
-    -> std::string {
+auto Paths::getKey(const Paths &resourcePaths, const std::filesystem::path &path) -> std::string {
     const std::filesystem::path relative = std::filesystem::relative(path, resourcePaths.inputDir);
     std::vector<std::string> dirs;
     for (const auto &dir : relative) {
@@ -31,3 +31,4 @@ auto ResourcePaths::getKey(const ResourcePaths &resourcePaths, const std::filesy
     key += extension;
     return key;
 }
+} // namespace ResourceLoader

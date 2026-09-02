@@ -1,15 +1,15 @@
-#include "ResourcePreprocessor.hpp"
-#include "ResourcePaths.hpp"
-#include "ResourcePtr.hpp"
-#include "ResourceType.hpp"
-#include "Utils.hpp"
+#include "ResourceLoader/private/Preprocessor.hpp"
+#include "ResourceLoader/Paths.hpp"
+#include "ResourceLoader/private/ResourcePtr.hpp"
+#include "ResourceLoader/private/ResourceType.hpp"
+#include "ResourceLoader/private/Utils.hpp"
 
-#include "MeshData.hpp"
-#include "Parsers.hpp"
-#include "Resource.hpp"
-#include "Serialiser.hpp"
-#include "ShaderData.hpp"
-#include "TextureData.hpp"
+#include "ResourceLoader/private/MeshData.hpp"
+#include "ResourceLoader/private/Parsers.hpp"
+#include "ResourceLoader/private/Resource.hpp"
+#include "ResourceLoader/private/Serialiser.hpp"
+#include "ResourceLoader/private/ShaderData.hpp"
+#include "ResourceLoader/private/TextureData.hpp"
 
 #include <Visitor.hpp>
 
@@ -30,6 +30,7 @@
 #include <variant>
 #include <vector>
 
+namespace ResourceLoader {
 namespace {
 void writeData(const std::string &key, const std::chrono::steady_clock::duration &parseTime,
                const ResourcePtr &resource, const std::filesystem::path &outputPath,
@@ -41,7 +42,7 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
     Serializer seralizer(buffer, indent);
 
     Visitor v{[&](const std::unique_ptr<ShaderData> &shaderData) -> void {
-                  buffer << "#include \"ShaderData.h\"\n"
+                  buffer << "#include \"ResourceLoader/private/ShaderData.h\"\n"
                          << "#include <stdint.h>\n\n";
 
                   buffer << "const uint32_t " << key << "_data_spv[] = ";
@@ -53,7 +54,7 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
                   buffer << ";";
               },
               [&](const std::unique_ptr<TextureData> &textureData) -> void {
-                  buffer << "#include \"TextureData.h\"\n";
+                  buffer << "#include \"ResourceLoader/private/TextureData.h\"\n";
                   buffer << "#include <stb_image.h>\n\n";
 
                   buffer << "const stbi_uc " << key << "_data_pixels[] = ";
@@ -65,7 +66,8 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
                   buffer << ";";
               },
               [&]([[maybe_unused]] const std::unique_ptr<MeshData> &meshData) -> void {
-                  buffer << "#include \"MeshData.hpp\"\n\nconst MeshData " << key << "_data = ";
+                  buffer << "#include \"ResourceLoader/private/MeshData.hpp\"\n\nconst MeshData "
+                         << key << "_data = ";
                   seralizer.write(*meshData);
                   buffer << ";";
               }};
@@ -79,9 +81,9 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
     ostream.close();
     const auto writeTime = std::chrono::steady_clock::now() - start;
     std::cout << std::filesystem::relative(outputPath, baseOutputPath).string()
-              << ": (Parsing: " << std::chrono::duration_cast<std::chrono::milliseconds>(parseTime)
-              << ", Writing: " << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime)
-              << ")\n";
+              << ": (Parsing: " << std::chrono::duration_cast<std::chrono::milliseconds>(parseTime).count()
+              << "ms, Writing: " << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime).count()
+              << "ms)\n";
 }
 
 struct Keys {
@@ -90,7 +92,7 @@ struct Keys {
     std::vector<std::string> meshes;
 };
 
-void processFiles(const std::filesystem::directory_entry &entry, const ResourcePaths &resourcePaths,
+void processFiles(const std::filesystem::directory_entry &entry, const Paths &resourcePaths,
                   Keys &keys) {
     if (!entry.is_regular_file())
         return;
@@ -102,7 +104,7 @@ void processFiles(const std::filesystem::directory_entry &entry, const ResourceP
     }
     const auto &[outputPath, type] = artefactTypeOpt.value();
 
-    const auto key = ResourcePaths::getKey(resourcePaths, path);
+    const auto key = Paths::getKey(resourcePaths, path);
 
     switch (type) {
     case ResourceType::Shader:
@@ -151,16 +153,16 @@ void processFiles(const std::filesystem::directory_entry &entry, const ResourceP
     writeData(key, parseTime, resource, outputPath, resourcePaths.outputDir);
 };
 
-void writeResources(Keys &keys, const ResourcePaths &resourcePaths) {
+void writeResources(Keys &keys, const Paths &resourcePaths) {
 
     std::stringstream buff;
 
     const std::filesystem::path resourceCpp = resourcePaths.outputDir / "Resource.cpp";
 
-    buff << "#include \"Resource.hpp\"\n";
-    buff << "#include \"ShaderData.h\"\n";
-    buff << "#include \"TextureData.h\"\n";
-    buff << "#include \"MeshData.hpp\"\n";
+    buff << "#include \"ResourceLoader/private/Resource.hpp\"\n";
+    buff << "#include \"ResourceLoader/private/ShaderData.h\"\n";
+    buff << "#include \"ResourceLoader/private/TextureData.h\"\n";
+    buff << "#include \"ResourceLoader/private/MeshData.hpp\"\n";
     buff << "\n";
     buff << "#include <array>\n";
     buff << "#include <tuple>\n";
@@ -213,12 +215,12 @@ auto getPreprocessorData() -> PreprocessorData {
         const auto writeTime = std::chrono::high_resolution_clock::now() - start;
         std::cout << std::filesystem::relative(resourceCpp, resourcePaths.outputDir).string()
                   << ": (Writing: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime) << ")\n";
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime).count() << "ms)\n";
     }
 }
 } // namespace
 
-void resourcePreprocessor(const ResourcePaths &resourcePaths) {
+void preprocessor(const Paths &resourcePaths) {
     if (!std::filesystem::exists(resourcePaths.outputDir)) {
         std::filesystem::create_directories(resourcePaths.outputDir);
     }
@@ -232,3 +234,4 @@ void resourcePreprocessor(const ResourcePaths &resourcePaths) {
 
     writeResources(keys, resourcePaths);
 }
+} // namespace ResourceLoader

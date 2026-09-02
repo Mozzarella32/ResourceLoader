@@ -7,5 +7,7 @@
 #include <memory>
 #include <variant>
 
+namespace ResourceLoader {
 using ResourcePtr = std::variant<std::unique_ptr<ShaderData>, std::unique_ptr<TextureData>,
                                  std::unique_ptr<MeshData>>;
+}

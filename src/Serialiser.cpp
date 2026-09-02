@@ -1,8 +1,10 @@
-#include "Serialiser.hpp"
-#include "MeshData.hpp"
-#include "ShaderData.hpp"
-#include "TextureData.hpp"
+#include "ResourceLoader/private/Serialiser.hpp"
 
+#include "ResourceLoader/private/MeshData.hpp"
+#include "ResourceLoader/private/ShaderData.hpp"
+#include "ResourceLoader/private/TextureData.hpp"
+
+#include <ios>
 #include <stb_image.h>
 
 #include <tiny_obj_loader.h>
@@ -19,10 +21,11 @@
 
 auto Serializer::getOstream() -> std::ostream & { return ostreamRef.get(); }
 
-auto Serializer::getIndent() -> std::string {
-    // NOLINTBEGIN(modernize-return-braced-init-list)
-    return std::string(indent, '\t');
-    // NOLINTEND(modernize-return-braced-init-list)
+void Serializer::writeIndent() {
+    static constexpr const std::string_view tabs = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
+    assert(indent < tabs.size());
+    auto &ostream = getOstream();
+    ostream.write(tabs.data(), static_cast<std::streamsize>(indent));
 }
 Serializer::Serializer(std::ostream &ostream, size_t &indent)
     : ostreamRef(ostream), indent(indent) {}
@@ -30,24 +33,28 @@ Serializer::Serializer(std::ostream &ostream, size_t &indent)
 void Serializer::decl(std::string_view name) {
     auto &ostream = getOstream();
     ostream << name << " {";
-    ostream << "\n" << getIndent();
+    ostream << "\n";
+    writeIndent();
 }
 
 void Serializer::declC() {
     auto &ostream = getOstream();
     ostream << " {";
-    ostream << "\n" << getIndent();
+    ostream << "\n";
+    writeIndent();
 }
 
 void Serializer::declNoAggregat(std::string_view name) {
     auto &ostream = getOstream();
     ostream << " []() {";
-    ostream << "\n" << getIndent();
+    ostream << "\n";
+    writeIndent();
     ostream << name << " data;";
-    ostream << "\n" << getIndent();
+    ostream << "\n";
+    writeIndent();
 }
 
-void Serializer::write(const std::string &str) {
+void Serializer::write(std::string_view str) {
     auto &ostream = getOstream();
     ostream << "\"" << str << "\"";
 }
@@ -274,11 +281,13 @@ void Serializer::expNoAggregat(std::string_view memberName, const auto &expresio
     indent++;
     write(expresionValue);
     indent--;
-    ostream << ";\n" << getIndent();
+    ostream << ";\n";
+    writeIndent();
     if (last) {
         ostream << "return data";
         indent--;
-        ostream << ";\n" << getIndent();
+        ostream << ";\n";
+        writeIndent();
         indent++;
         ostream << "}()";
     }
@@ -289,7 +298,8 @@ void Serializer::exp(std::string_view memberName, const auto &expresionValue, bo
     ostream << "." << memberName << " = ";
     indent++;
     write(expresionValue);
-    ostream << ",\n" << getIndent();
+    ostream << ",\n";
+    writeIndent();
     indent--;
     if (last) {
         ostream << "}";
@@ -302,10 +312,12 @@ void Serializer::memberNoAggregat(std::string_view memberName, const auto &membe
     indent++;
     write(memberValue);
     indent--;
-    ostream << ";\n" << getIndent();
+    ostream << ";\n";
+    writeIndent();
     if (last) {
         indent--;
-        ostream << ";\n" << getIndent();
+        ostream << ";\n";
+        writeIndent();
         indent++;
         ostream << "return data";
         ostream << "}()";
@@ -319,7 +331,8 @@ void Serializer::member(std::string_view memberName, const auto &memberValue, bo
     write(memberValue);
     indent--;
     if (!last) {
-        ostream << ",\n" << getIndent();
+        ostream << ",\n";
+        writeIndent();
         return;
     }
     ostream << "}";

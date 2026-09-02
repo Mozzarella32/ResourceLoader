@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ResourcePaths.hpp"
-#include "ResourceType.hpp"
+#include "ResourceLoader/Paths.hpp"
+#include "ResourceLoader/private/ResourceType.hpp"
 
 #include <ctime>
 #include <filesystem>
@@ -9,9 +9,11 @@
 #include <string>
 #include <tuple>
 
+namespace ResourceLoader {
 auto modificationTime(const std::filesystem::path &path) -> std::time_t;
 
-auto getOutputPathAndType(const std::filesystem::path &path, const ResourcePaths &resourcePaths)
+auto getOutputPathAndType(const std::filesystem::path &path, const Paths &resourcePaths)
     -> std::optional<std::tuple<std::filesystem::path, ResourceType>>;
 
 auto readFile(const std::filesystem::path &path) -> std::string;
+} // namespace ResourceLoader

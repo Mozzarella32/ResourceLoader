@@ -95,6 +95,11 @@ target_include_directories(ResourceLoader
         "${CMAKE_CURRENT_SOURCE_DIR}/submodules/Visitor"
 )
 
+set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR} ./src/impls/tiny_obj_loader_impl.cpp"
+    PROPERTIES
+        COMPILE_FEATURES cxx_std_11
+)
+
 target_link_libraries(ResourceLoader
     PRIVATE
         glslang::glslang
