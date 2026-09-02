@@ -200,7 +200,9 @@ if (RESOURCE_PREPROCESSOR_RESOURCES_DIR)
         OUTPUT ${RESOURCE_OUTPUT_FILES}
         COMMAND $<TARGET_FILE:ResourceLoaderPreprocessor>
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS ResourceLoaderPreprocessor
+        DEPENDS
+            ResourceLoaderPreprocessor
+            ${RESOURCE_INPUT_FILES}
         COMMENT "Running ResourceLoaderPreprocessor"
         VERBATIM
     )
