@@ -80,9 +80,10 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
     ostream << buffer.str();
     ostream.close();
     const auto writeTime = std::chrono::steady_clock::now() - start;
-    std::cout << std::filesystem::relative(outputPath, baseOutputPath).string()
-              << ": (Parsing: " << std::chrono::duration_cast<std::chrono::milliseconds>(parseTime).count()
-              << "ms, Writing: " << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime).count()
+    std::cout << std::filesystem::relative(outputPath, baseOutputPath).string() << ": (Parsing: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(parseTime).count()
+              << "ms, Writing: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime).count()
               << "ms)\n";
 }
 
@@ -215,7 +216,8 @@ auto getPreprocessorData() -> PreprocessorData {
         const auto writeTime = std::chrono::high_resolution_clock::now() - start;
         std::cout << std::filesystem::relative(resourceCpp, resourcePaths.outputDir).string()
                   << ": (Writing: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime).count() << "ms)\n";
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(writeTime).count()
+                  << "ms)\n";
     }
 }
 } // namespace

@@ -22,10 +22,8 @@
 auto Serializer::getOstream() -> std::ostream & { return ostreamRef.get(); }
 
 void Serializer::writeIndent() {
-    static constexpr const std::string_view tabs = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
-    assert(indent < tabs.size());
     auto &ostream = getOstream();
-    ostream.write(tabs.data(), static_cast<std::streamsize>(indent));
+    ostream << std::string(indent, '\t');
 }
 Serializer::Serializer(std::ostream &ostream, size_t &indent)
     : ostreamRef(ostream), indent(indent) {}

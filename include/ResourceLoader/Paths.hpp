@@ -13,4 +13,4 @@ struct Paths {
     static auto getKey(const Paths &resourcePaths, const std::filesystem::path &path)
         -> std::string;
 };
-}
+} // namespace ResourceLoader

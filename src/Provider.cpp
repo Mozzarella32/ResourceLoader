@@ -221,9 +221,7 @@ auto Provider::shadersNeedUpdatingClear() -> bool {
 auto Provider::texturesNeedUpdatingClear() -> bool {
     return std::exchange(texturesNeedUpdating, false);
 }
-auto Provider::meshesNeedUpdateClear() -> bool {
-    return std::exchange(meshesNeedUpdate, false);
-}
+auto Provider::meshesNeedUpdateClear() -> bool { return std::exchange(meshesNeedUpdate, false); }
 
 Provider::~Provider() {
     if (running) {
