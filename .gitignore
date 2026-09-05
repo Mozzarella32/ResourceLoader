@@ -53,8 +53,4 @@ external
 # JetBrains
 .idea/*
 
-VKApp
-
-resources/output
-
-app/pipeline_cache
+.fetched

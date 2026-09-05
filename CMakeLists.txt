@@ -3,15 +3,39 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 project(ResourceLoader LANGUAGES CXX C)
 
-include(FetchContent)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(STB_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/submodules/stb")
-set(TINY_OBJ_LOADER_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/submodules/tinyobjloader")
+set(CPM_SOURCE_CACHE
+    "${CMAKE_CURRENT_SOURCE_DIR}/.fetched"
+    CACHE PATH "CPM source cache"
+)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake")
+
+CPMAddPackage(
+    NAME stb
+    GITHUB_REPOSITORY nothings/stb
+    GIT_TAG master
+    DOWNLOAD_ONLY YES
+)
+
+CPMAddPackage(
+    NAME tinyobjloader
+    GITHUB_REPOSITORY tinyobjloader/tinyobjloader
+    GIT_TAG v1.0.7
+    DOWNLOAD_ONLY YES
+)
+
+set(STB_INCLUDE_DIR "${stb_SOURCE_DIR}")
+set(TINY_OBJ_LOADER_INCLUDE_DIR "${tinyobjloader_SOURCE_DIR}")
+
+CPMAddPackage(
+    NAME Visitor
+    GITHUB_REPOSITORY mozzarella32/visitor
+    GIT_TAG main
+)
 
 find_package(glslang QUIET)
 
@@ -25,9 +49,8 @@ if(glslang_FOUND)
             glslang
     )
 else()
-    set(GLSLANG_EXTERNAL_ROOT "${CMAKE_SOURCE_DIR}/external/glslang")
+    message(STATUS "glslang not found on system; fetching it with CPM")
 
-    message(STATUS "glslang not found on system.")
     set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip building examples for SPIRV-Headers")
     set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE BOOL "Skip install for SPIRV-Headers")
 
@@ -54,25 +77,28 @@ else()
     set(ENABLE_OPT ON CACHE BOOL "")
     set(ENABLE_PCH OFF CACHE BOOL "")
 
-    FetchContent_Declare(
-      spirv_headers
-      GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers.git
-      GIT_TAG main
+     CPMAddPackage(
+        NAME spirv_headers
+        GITHUB_REPOSITORY KhronosGroup/SPIRV-Headers
+        GIT_TAG main
     )
 
-    FetchContent_Declare(
-      spirv_tools
-      GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools.git
-      GIT_TAG main
+    CPMAddPackage(
+        NAME spirv_tools
+        GITHUB_REPOSITORY KhronosGroup/SPIRV-Tools
+        GIT_TAG main
+        OPTIONS
+            "SPIRV-Headers_SOURCE_DIR ${spirv_headers_SOURCE_DIR}"
     )
 
-    FetchContent_Declare(
-      glslang
-      GIT_REPOSITORY https://github.com/KhronosGroup/glslang.git
-      GIT_TAG main
+    CPMAddPackage(
+        NAME glslang
+        GITHUB_REPOSITORY KhronosGroup/glslang
+        GIT_TAG main
+        OPTIONS
+            "SPIRV-Headers_SOURCE_DIR ${spirv_headers_SOURCE_DIR}"
+            "SPIRV_TOOLS_SOURCE_DIR ${spirv_tools_SOURCE_DIR}"
     )
-
-    FetchContent_MakeAvailable(spirv_headers spirv_tools glslang)
 endif()
 
 if (MSVC)
@@ -92,7 +118,6 @@ add_library(ResourceLoader::Library ALIAS ResourceLoader)
 target_include_directories(ResourceLoader
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
-        "${CMAKE_CURRENT_SOURCE_DIR}/submodules/Visitor"
 )
 
 set(TINYOBJ_IMPL
@@ -111,6 +136,7 @@ target_link_libraries(ResourceLoader
         glslang::glslang
         glslang::SPIRV
         glslang::glslang-default-resource-limits
+        Visitor::Headers
 )
 
 target_include_directories(ResourceLoader
