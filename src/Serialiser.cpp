@@ -136,7 +136,7 @@ void Serializer::write(const tinyobj::attrib_t &data) {
     memberNoAggregat("vertices", data.vertices);
     memberNoAggregat("normals", data.normals);
     memberNoAggregat("texcoords", data.texcoords);
-    memberNoAggregat("colors", data.colors,true);
+    memberNoAggregat("colors", data.colors, true);
 }
 
 void Serializer::write(const tinyobj::mesh_t &data) {
@@ -166,7 +166,7 @@ void Serializer::write(const tinyobj::index_t &data) {
 void Serializer::write(const tinyobj::shape_t &data) {
     decl("tinyobj::shape_t");
     member("name", data.name);
-    member("mesh", data.mesh,true);
+    member("mesh", data.mesh, true);
 }
 
 void Serializer::write(const tinyobj::texture_option_t &data) {

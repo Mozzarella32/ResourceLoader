@@ -120,8 +120,11 @@ auto parseShader(const std::filesystem::path &path, std::string_view name)
             path.string()));
     }
 
+    // msvc gets a iterator not a pointer leading to deduction failiure
+    // NOLINTBEGIN(readability-qualified-auto)
     const auto iter = std::ranges::find_if(
         extensionToEShLanguage, [&](const auto pair) { return pair.first == extension; });
+    // NOLINTEND(readability-qualified-auto)
 
     if (iter == extensionToEShLanguage.end()) {
         throw std::logic_error(

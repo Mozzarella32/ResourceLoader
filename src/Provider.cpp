@@ -200,7 +200,7 @@ void Provider::startUpdater(std::chrono::milliseconds suppliedRefreshTime) {
     }
     for (const auto &[key, meshData] : preprocessorData.meshes) {
         data[std::string(key)] = std::make_unique<MeshData>(meshData->timestamp, meshData->attrib,
-                                                           meshData->shapes, meshData->materials);
+                                                            meshData->shapes, meshData->materials);
     };
 
     running = true;

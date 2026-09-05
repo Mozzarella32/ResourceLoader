@@ -73,9 +73,8 @@ class Serializer {
             perline = 8;
         } else if constexpr (std::same_as<T, stbi_uc>) {
             perline = 16;
-        } else if constexpr (std::same_as<T, std::string> ||
-                             std::same_as<T, tinyobj::index_t> || std::same_as<T, tinyobj::tag_t> ||
-                             std::same_as<T, tinyobj::shape_t> ||
+        } else if constexpr (std::same_as<T, std::string> || std::same_as<T, tinyobj::index_t> ||
+                             std::same_as<T, tinyobj::tag_t> || std::same_as<T, tinyobj::shape_t> ||
                              std::same_as<T, tinyobj::material_t>) {
             perline = 1;
         } else {
@@ -143,9 +142,8 @@ class Serializer {
             perline = 8;
         } else if constexpr (std::same_as<T, stbi_uc>) {
             perline = 16;
-        } else if constexpr (std::same_as<T, std::string> ||
-                             std::same_as<T, tinyobj::index_t> || std::same_as<T, tinyobj::tag_t> ||
-                             std::same_as<T, tinyobj::shape_t> ||
+        } else if constexpr (std::same_as<T, std::string> || std::same_as<T, tinyobj::index_t> ||
+                             std::same_as<T, tinyobj::tag_t> || std::same_as<T, tinyobj::shape_t> ||
                              std::same_as<T, tinyobj::material_t>) {
             perline = 1;
         } else {
