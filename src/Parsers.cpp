@@ -120,7 +120,7 @@ auto parseShader(const std::filesystem::path &path, std::string_view name)
             path.string()));
     }
 
-    const auto *iter = std::ranges::find_if(
+    const auto iter = std::ranges::find_if(
         extensionToEShLanguage, [&](const auto pair) { return pair.first == extension; });
 
     if (iter == extensionToEShLanguage.end()) {

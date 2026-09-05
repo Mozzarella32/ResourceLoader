@@ -115,18 +115,6 @@ void Serializer::write(const tinyobj::texture_type_t &texture) {
     ostream << "tinyobj::texture_type_t(0x" << std::setw(3) << static_cast<size_t>(texture) << ")";
 }
 
-void Serializer::write(const tinyobj::skin_weight_t &data) {
-    decl("tinyobj::skin_weight_t");
-    member("vertex_id", data.vertex_id);
-    member("weightValues", data.weightValues, true);
-}
-
-void Serializer::write(const tinyobj::joint_and_weight_t &data) {
-    decl("tinyobj::joint_and_weight_t");
-    member("joint_id", data.joint_id);
-    member("weight", data.weight, true);
-}
-
 void Serializer::write(const ShaderData &data, std::string_view key) {
     declC();
     member("timestamp", data.timestamp);
@@ -146,12 +134,9 @@ void Serializer::write(const TextureData &data, std::string_view key) {
 void Serializer::write(const tinyobj::attrib_t &data) {
     declNoAggregat("tinyobj::attrib_t");
     memberNoAggregat("vertices", data.vertices);
-    memberNoAggregat("vertex_weights", data.vertex_weights);
     memberNoAggregat("normals", data.normals);
     memberNoAggregat("texcoords", data.texcoords);
-    memberNoAggregat("texcoord_ws", data.texcoord_ws);
-    memberNoAggregat("colors", data.colors);
-    memberNoAggregat("skin_weights", data.skin_weights, true);
+    memberNoAggregat("colors", data.colors,true);
 }
 
 void Serializer::write(const tinyobj::mesh_t &data) {
@@ -171,17 +156,6 @@ void Serializer::write(const tinyobj::tag_t &data) {
     member("stringValues", data.stringValues, true);
 }
 
-void Serializer::write(const tinyobj::lines_t &data) {
-    decl("tinyobj::lines_t");
-    member("indices", data.indices);
-    member("num_line_vertices", data.num_line_vertices, true);
-}
-
-void Serializer::write(const tinyobj::points_t &data) {
-    decl("tinyobj::points_t");
-    member("indices", data.indices, true);
-}
-
 void Serializer::write(const tinyobj::index_t &data) {
     decl("tinyobj::index_t");
     member("vertex_index", data.vertex_index);
@@ -192,9 +166,7 @@ void Serializer::write(const tinyobj::index_t &data) {
 void Serializer::write(const tinyobj::shape_t &data) {
     decl("tinyobj::shape_t");
     member("name", data.name);
-    member("mesh", data.mesh);
-    member("lines", data.lines);
-    member("points", data.points, true);
+    member("mesh", data.mesh,true);
 }
 
 void Serializer::write(const tinyobj::texture_option_t &data) {
@@ -206,7 +178,6 @@ void Serializer::write(const tinyobj::texture_option_t &data) {
     member("origin_offset", data.origin_offset);
     member("scale", data.scale);
     member("turbulence", data.turbulence);
-    member("texture_resolution", data.texture_resolution);
     member("clamp", data.clamp);
     member("imfchan", data.imfchan);
     member("blendu", data.blendu);

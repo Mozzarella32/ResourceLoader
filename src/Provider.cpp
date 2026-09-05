@@ -199,7 +199,7 @@ void Provider::startUpdater(std::chrono::milliseconds suppliedRefreshTime) {
             std::vector<stbi_uc>{textureDataSpan.begin(), textureDataSpan.end()});
     }
     for (const auto &[key, meshData] : preprocessorData.meshes) {
-        data[std::string(key)], std::make_unique<MeshData>(meshData->timestamp, meshData->attrib,
+        data[std::string(key)] = std::make_unique<MeshData>(meshData->timestamp, meshData->attrib,
                                                            meshData->shapes, meshData->materials);
     };
 

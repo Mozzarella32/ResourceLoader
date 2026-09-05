@@ -95,9 +95,15 @@ target_include_directories(ResourceLoader
         "${CMAKE_CURRENT_SOURCE_DIR}/submodules/Visitor"
 )
 
-set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR} ./src/impls/tiny_obj_loader_impl.cpp"
+set(TINYOBJ_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/impls/tiny_obj_loader_impl.cpp"
+)
+
+set_source_files_properties(${TINYOBJ_IMPL}
     PROPERTIES
-        COMPILE_FEATURES cxx_std_11
+        #COMPILE_FEATURES cxx_std_20
+        COMPILE_OPTIONS
+            "$<$<CXX_COMPILER_ID:MSVC>:/W0>$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>"
 )
 
 target_link_libraries(ResourceLoader

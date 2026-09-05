@@ -52,13 +52,9 @@ class Serializer {
     void write(const stbi_uc &value);
 
     void write(const tinyobj::texture_type_t &texture);
-    void write(const tinyobj::skin_weight_t &data);
-    void write(const tinyobj::joint_and_weight_t &data);
     void write(const tinyobj::attrib_t &data);
     void write(const tinyobj::mesh_t &data);
     void write(const tinyobj::tag_t &data);
-    void write(const tinyobj::lines_t &data);
-    void write(const tinyobj::points_t &data);
     void write(const tinyobj::index_t &data);
     void write(const tinyobj::shape_t &data);
     void write(const tinyobj::texture_option_t &data);
@@ -78,8 +74,6 @@ class Serializer {
         } else if constexpr (std::same_as<T, stbi_uc>) {
             perline = 16;
         } else if constexpr (std::same_as<T, std::string> ||
-                             std::same_as<T, tinyobj::skin_weight_t> ||
-                             std::same_as<T, tinyobj::joint_and_weight_t> ||
                              std::same_as<T, tinyobj::index_t> || std::same_as<T, tinyobj::tag_t> ||
                              std::same_as<T, tinyobj::shape_t> ||
                              std::same_as<T, tinyobj::material_t>) {
@@ -150,8 +144,6 @@ class Serializer {
         } else if constexpr (std::same_as<T, stbi_uc>) {
             perline = 16;
         } else if constexpr (std::same_as<T, std::string> ||
-                             std::same_as<T, tinyobj::skin_weight_t> ||
-                             std::same_as<T, tinyobj::joint_and_weight_t> ||
                              std::same_as<T, tinyobj::index_t> || std::same_as<T, tinyobj::tag_t> ||
                              std::same_as<T, tinyobj::shape_t> ||
                              std::same_as<T, tinyobj::material_t>) {
