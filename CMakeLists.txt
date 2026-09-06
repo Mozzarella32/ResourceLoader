@@ -17,7 +17,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake")
 CPMAddPackage(
     NAME stb
     GITHUB_REPOSITORY nothings/stb
-    GIT_TAG master
+    GIT_TAG 2c980bb59875b0d32144a71867fbdebb2f77cd20
     DOWNLOAD_ONLY YES
 )
 
@@ -34,7 +34,7 @@ set(TINY_OBJ_LOADER_INCLUDE_DIR "${tinyobjloader_SOURCE_DIR}")
 CPMAddPackage(
     NAME Visitor
     GITHUB_REPOSITORY mozzarella32/visitor
-    GIT_TAG main
+    GIT_TAG 703359ec492b785a010326095eb362a296e02dab
 )
 
 find_package(glslang QUIET)
