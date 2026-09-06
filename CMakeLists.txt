@@ -159,7 +159,7 @@ target_include_directories(ResourceLoaderHeaders
 )
 
 if (RESOURCE_PREPROCESSOR_RESOURCES_DIR)
-    add_executable(ResourceLoaderPreprocessor "${CMAKE_CURRENT_SOURCE_DIR}/standalone/main.cpp")
+    add_executable(ResourceLoaderPreprocessor "${CMAKE_CURRENT_SOURCE_DIR}/preprocessor/main.cpp")
 
     target_compile_definitions(ResourceLoaderPreprocessor
         PRIVATE
