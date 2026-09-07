@@ -80,13 +80,13 @@ else()
      CPMAddPackage(
         NAME spirv_headers
         GITHUB_REPOSITORY KhronosGroup/SPIRV-Headers
-        GIT_TAG main
+        GIT_TAG v2026.08.0
     )
 
     CPMAddPackage(
         NAME spirv_tools
         GITHUB_REPOSITORY KhronosGroup/SPIRV-Tools
-        GIT_TAG main
+        GIT_TAG v2026.3
         OPTIONS
             "SPIRV-Headers_SOURCE_DIR ${spirv_headers_SOURCE_DIR}"
     )
@@ -94,7 +94,7 @@ else()
     CPMAddPackage(
         NAME glslang
         GITHUB_REPOSITORY KhronosGroup/glslang
-        GIT_TAG main
+        GIT_TAG 16.5.0
         OPTIONS
             "SPIRV-Headers_SOURCE_DIR ${spirv_headers_SOURCE_DIR}"
             "SPIRV_TOOLS_SOURCE_DIR ${spirv_tools_SOURCE_DIR}"
