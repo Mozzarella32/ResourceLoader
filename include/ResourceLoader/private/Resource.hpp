@@ -4,8 +4,6 @@
 #include "ShaderData.h"
 #include "TextureData.h"
 
-#include <stb_image.h>
-
 #include <concepts>
 #include <cstdint>
 #include <span>

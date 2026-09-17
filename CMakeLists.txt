@@ -120,6 +120,14 @@ target_include_directories(ResourceLoader
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
+# For debugging the shader spirv
+option(RESOURCE_LOADER_OUTPUT_SPV_FILES "Write compiled shaders to .spv files" OFF)
+
+target_compile_definitions(ResourceLoader
+    PRIVATE
+        $<$<BOOL:${RESOURCE_LOADER_OUTPUT_SPV_FILES}>:RESOURCE_LOADER_OUTPUT_SPV_FILES>
+)
+
 set(TINYOBJ_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/impls/tiny_obj_loader_impl.cpp"
 )

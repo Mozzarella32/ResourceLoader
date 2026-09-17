@@ -20,9 +20,11 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -52,6 +54,15 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
                   buffer << "const ShaderData_c " << key << "_data = ";
                   seralizer.write(*shaderData, key);
                   buffer << ";";
+
+                  std::filesystem::path spvPath = outputPath;
+                  spvPath.replace_extension("spv");
+                  std::ofstream spvFile(spvPath, std::ios::binary);
+                  const auto spvBytes = std::as_bytes(std::span{shaderData->data});
+                  // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+                  spvFile.write(reinterpret_cast<const char *>(spvBytes.data()),
+                                static_cast<std::streamsize>(spvBytes.size()));
+                  // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
               },
               [&](const std::unique_ptr<TextureData> &textureData) -> void {
                   buffer << "#include \"ResourceLoader/private/TextureData.h\"\n";
