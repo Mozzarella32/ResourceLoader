@@ -20,17 +20,20 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
-#include <ios>
 #include <iostream>
 #include <memory>
 #include <optional>
-#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <variant>
 #include <vector>
+
+#ifdef RESOURCE_LOADER_OUTPUT_SPV_FILES
+#include <ios>
+#include <span>
+#endif
 
 namespace ResourceLoader {
 namespace {
@@ -55,7 +58,7 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
                   seralizer.write(*shaderData, key);
                   buffer << ";";
 
-#ifdef RESOUCE_LOADER_OUTPUT_SPV_FILES
+#ifdef RESOURCE_LOADER_OUTPUT_SPV_FILES
                   std::filesystem::path spvPath = outputPath;
                   spvPath.replace_extension("spv");
                   std::ofstream spvFile(spvPath, std::ios::binary);
