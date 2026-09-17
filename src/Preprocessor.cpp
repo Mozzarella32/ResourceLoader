@@ -55,6 +55,7 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
                   seralizer.write(*shaderData, key);
                   buffer << ";";
 
+#ifdef RESOUCE_LOADER_OUTPUT_SPV_FILES
                   std::filesystem::path spvPath = outputPath;
                   spvPath.replace_extension("spv");
                   std::ofstream spvFile(spvPath, std::ios::binary);
@@ -62,7 +63,8 @@ void writeData(const std::string &key, const std::chrono::steady_clock::duration
                   // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
                   spvFile.write(reinterpret_cast<const char *>(spvBytes.data()),
                                 static_cast<std::streamsize>(spvBytes.size()));
-                  // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+// NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+#endif
               },
               [&](const std::unique_ptr<TextureData> &textureData) -> void {
                   buffer << "#include \"ResourceLoader/private/TextureData.h\"\n";
